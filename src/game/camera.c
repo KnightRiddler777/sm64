@@ -29,7 +29,11 @@
 #include "engine/graph_node.h"
 #include "level_table.h"
 
+#if MIRROR_MODE == 1
+#define CBUTTON_MASK (U_CBUTTONS | D_CBUTTONS | R_CBUTTONS | L_CBUTTONS)
+#else
 #define CBUTTON_MASK (U_CBUTTONS | D_CBUTTONS | L_CBUTTONS | R_CBUTTONS)
+#endif
 
 /**
  * @file camera.c

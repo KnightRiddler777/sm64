@@ -11,6 +11,10 @@
 #include "shadow.h"
 #include "sm64.h"
 
+#if MIRROR_MODE == 1
+u8 isGameFlipped = FALSE;
+#endif
+
 /**
  * This file contains the code that processes the scene graph for rendering.
  * The scene graph is responsible for drawing everything except the HUD / text boxes.
@@ -127,6 +131,22 @@ u16 gAreaUpdateCounter = 0;
 
 #ifdef F3DEX_GBI_2
 LookAt lookAt;
+#endif
+
+#if MIRROR_MODE == 1
+Gfx *geo_invert_cond(s32 callContext, UNUSED struct GraphNode *node, UNUSED f32 mtx[4][4]) {
+    if (callContext == GEO_CONTEXT_RENDER && !isGameFlipped) {
+	gSPGeometryMode(gDisplayListHead++, G_CULL_BACK, G_CULL_FRONT);
+    }
+    return NULL;
+}
+
+Gfx *geo_invert_cond_off(s32 callContext, UNUSED struct GraphNode *node, UNUSED f32 mtx[4][4]) {
+    if (callContext == GEO_CONTEXT_RENDER && !isGameFlipped) {
+	gSPGeometryMode(gDisplayListHead++, G_CULL_FRONT, G_CULL_BACK);
+    }
+    return NULL;
+}
 #endif
 
 /**
@@ -1052,7 +1072,15 @@ void geo_process_root(struct GraphNodeRoot *node, Vp *b, Vp *c, s32 clearColor) 
         gMatStackIndex = 0;
         gCurrAnimType = 0;
         vec3s_set(viewport->vp.vtrans, node->x * 4, node->y * 4, 511);
-        vec3s_set(viewport->vp.vscale, node->width * 4, node->height * 4, 511);
+#if MIRROR_MODE == 1
+	if (isGameFlipped) {
+	    vec3s_set(viewport->vp.vscale, node->width * 4 * -1, node->height * 4, 511);
+	} else {
+	    vec3s_set(viewport->vp.vscale, node->width * 4, node->height * 4, 511);
+	}
+#else
+	vec3s_set(viewport->vp.vscale, node->width * 4, node->height * 4, 511);
+#endif
         if (b != NULL) {
             clear_framebuffer(clearColor);
             make_viewport_clip_rect(b);

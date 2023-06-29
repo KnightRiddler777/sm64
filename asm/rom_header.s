@@ -21,9 +21,9 @@
 .word  0x00000000               /* Unknown */
 .word  0x00000000               /* Unknown */
 #ifdef VERSION_SH
-.ascii "SUPERMARIO64        "   /* Internal ROM name */
+.ascii "SUPERMARIO64MQ      "   /* Internal ROM name */
 #else
-.ascii "SUPER MARIO 64      "   /* Internal ROM name */
+.ascii "SUPER MARIO 64 MQ   "   /* Internal ROM name */
 #endif
 .word  0x00000000               /* Unknown */
 .word  0x0000004E               /* Cartridge */

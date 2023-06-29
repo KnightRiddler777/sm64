@@ -8,6 +8,7 @@
 #include "buffers/framebuffers.h"
 #include "buffers/zbuffer.h"
 #include "engine/level_script.h"
+#include "rendering_graph_node.h"
 #include "game_init.h"
 #include "main.h"
 #include "memory.h"
@@ -457,6 +458,9 @@ void adjust_analog_stick(struct Controller *controller) {
         controller->stickY *= 64 / controller->stickMag;
         controller->stickMag = 64;
     }
+#if MIRROR_MODE == 1
+    controller->stickX *= -1;
+#endif
 }
 
 /**

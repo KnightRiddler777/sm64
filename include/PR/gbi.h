@@ -21,6 +21,7 @@
 #define _GBI_H_
 
 #include <PR/ultratypes.h>
+#include "config.h"
 
 /*
  * To use the F3DEX ucodes, define F3DEX_GBI before include this file.
@@ -350,15 +351,20 @@
 #ifdef	F3DEX_GBI_2
 # define G_TEXTURE_ENABLE	0x00000000	/* Ignored               */
 # define G_SHADING_SMOOTH	0x00200000	/* flat or smooth shaded */
+#if MIRROR_MODE == 1
+# define G_CULL_FRONT		0x00000400
+# define G_CULL_BACK		0x00000200
+#else
 # define G_CULL_FRONT		0x00000200
 # define G_CULL_BACK		0x00000400
+#endif
 # define G_CULL_BOTH		0x00000600	/* To make code cleaner */
 #else
 # define G_TEXTURE_ENABLE	0x00000002	/* Microcode use only */
 # define G_SHADING_SMOOTH	0x00000200	/* flat or smooth shaded */
-# define G_CULL_FRONT		0x00001000
-# define G_CULL_BACK		0x00002000
-# define G_CULL_BOTH		0x00003000	/* To make code cleaner */
+# define G_CULL_FRONT		0x00000000
+# define G_CULL_BACK		0x00000000
+# define G_CULL_BOTH		0x00000000	/* To make code cleaner */
 #endif
 #define G_FOG			0x00010000
 #define G_LIGHTING		0x00020000
@@ -723,7 +729,7 @@
 	(m1a) << 28 | (m1b) << 24 | (m2a) << 20 | (m2b) << 16
 
 #define	RM_AA_ZB_OPA_SURF(clk)					\
-	AA_EN | Z_CMP | Z_UPD | IM_RD | CVG_DST_CLAMP |		\
+	AA_EN | Z_CMP | Z_UPD | CVG_DST_CLAMP |			\
 	ZMODE_OPA | ALPHA_CVG_SEL |				\
 	GBL_c##clk(G_BL_CLR_IN, G_BL_A_IN, G_BL_CLR_MEM, G_BL_A_MEM)
 
@@ -738,7 +744,7 @@
 	GBL_c##clk(G_BL_CLR_IN, G_BL_A_IN, G_BL_CLR_MEM, G_BL_1MA)
 
 #define	RM_AA_ZB_OPA_DECAL(clk)					\
-	AA_EN | Z_CMP | IM_RD | CVG_DST_WRAP | ALPHA_CVG_SEL |	\
+	AA_EN | Z_CMP | CVG_DST_WRAP | ALPHA_CVG_SEL |		\
 	ZMODE_DEC |						\
 	GBL_c##clk(G_BL_CLR_IN, G_BL_A_IN, G_BL_CLR_MEM, G_BL_A_MEM)
 
@@ -753,7 +759,7 @@
 	GBL_c##clk(G_BL_CLR_IN, G_BL_A_IN, G_BL_CLR_MEM, G_BL_1MA)
 
 #define	RM_AA_ZB_OPA_INTER(clk)					\
-	AA_EN | Z_CMP | Z_UPD | IM_RD | CVG_DST_CLAMP |		\
+	AA_EN | Z_CMP | Z_UPD | CVG_DST_CLAMP |			\
 	ALPHA_CVG_SEL |	ZMODE_INTER |				\
 	GBL_c##clk(G_BL_CLR_IN, G_BL_A_IN, G_BL_CLR_MEM, G_BL_A_MEM)
 
@@ -819,7 +825,7 @@
 	GBL_c##clk(G_BL_CLR_IN, G_BL_A_IN, G_BL_CLR_MEM, G_BL_A_MEM)
 
 #define	RM_RA_OPA_SURF(clk)					\
-	AA_EN | CVG_DST_CLAMP |				\
+	AA_EN | CVG_DST_CLAMP |					\
 	ZMODE_OPA | ALPHA_CVG_SEL |				\
 	GBL_c##clk(G_BL_CLR_IN, G_BL_A_IN, G_BL_CLR_MEM, G_BL_A_MEM)
 

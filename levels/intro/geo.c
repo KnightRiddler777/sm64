@@ -10,6 +10,7 @@
 #include "game/paintings.h"
 #include "menu/debug_level_select.h"
 #include "menu/intro_geo.h"
+#include "menu/file_select.h"
 
 #include "make_const_nonconst.h"
 
@@ -19,6 +20,9 @@
 const GeoLayout intro_geo_0002D0[] = {
    GEO_NODE_SCREEN_AREA(0, SCREEN_WIDTH/2, SCREEN_HEIGHT/2, SCREEN_WIDTH/2, SCREEN_HEIGHT/2),
    GEO_OPEN_NODE(),
+#if MIRROR_MODE == 1
+      GEO_ASM(0, geo_invert),
+#endif
       GEO_ZBUFFER(0),
       GEO_OPEN_NODE(),
          GEO_NODE_ORTHO(100),
@@ -40,6 +44,9 @@ const GeoLayout intro_geo_0002D0[] = {
       GEO_OPEN_NODE(),
          GEO_ASM(0, geo_intro_tm_copyright),
       GEO_CLOSE_NODE(),
+#if MIRROR_MODE == 1
+   GEO_ASM(0, geo_invert_off),
+#endif
    GEO_CLOSE_NODE(),
    GEO_END(),
 };
@@ -48,6 +55,9 @@ const GeoLayout intro_geo_0002D0[] = {
 const GeoLayout intro_geo_mario_head_regular[] = {
    GEO_NODE_SCREEN_AREA(0, SCREEN_WIDTH/2, SCREEN_HEIGHT/2, SCREEN_WIDTH/2, SCREEN_HEIGHT/2),
    GEO_OPEN_NODE(),
+#if MIRROR_MODE == 1
+      GEO_ASM(0, geo_invert),
+#endif
       GEO_ZBUFFER(0),
       GEO_OPEN_NODE(),
          GEO_NODE_ORTHO(100),
@@ -71,6 +81,9 @@ const GeoLayout intro_geo_mario_head_regular[] = {
       GEO_ASM(0, geo_intro_rumble_pak_graphic),
    GEO_CLOSE_NODE(),
 #endif
+#if MIRROR_MODE == 1
+   GEO_ASM(0, geo_invert_off),
+#endif
    GEO_CLOSE_NODE(),
    GEO_END(),
 };
@@ -79,6 +92,9 @@ const GeoLayout intro_geo_mario_head_regular[] = {
 const GeoLayout intro_geo_mario_head_dizzy[] = {
    GEO_NODE_SCREEN_AREA(0, SCREEN_WIDTH/2, SCREEN_HEIGHT/2, SCREEN_WIDTH/2, SCREEN_HEIGHT/2),
    GEO_OPEN_NODE(),
+#if MIRROR_MODE == 1
+      GEO_ASM(0, geo_invert),
+#endif
       GEO_ZBUFFER(0),
       GEO_OPEN_NODE(),
          GEO_NODE_ORTHO(100),
@@ -102,6 +118,9 @@ const GeoLayout intro_geo_mario_head_dizzy[] = {
          GEO_ASM(1, geo_intro_rumble_pak_graphic),
       GEO_CLOSE_NODE(),
 #endif
+#if MIRROR_MODE == 1
+   GEO_ASM(0, geo_invert_off),
+#endif
    GEO_CLOSE_NODE(),
    GEO_END(),
 };
@@ -110,6 +129,9 @@ const GeoLayout intro_geo_mario_head_dizzy[] = {
 const GeoLayout intro_geo_000414[] = {
    GEO_NODE_SCREEN_AREA(0, SCREEN_WIDTH/2, SCREEN_HEIGHT/2, SCREEN_WIDTH/2, SCREEN_HEIGHT/2),
    GEO_OPEN_NODE(),
+#if MIRROR_MODE == 1
+      GEO_ASM(0, geo_invert),
+#endif
       GEO_ZBUFFER(0),
       GEO_OPEN_NODE(),
          GEO_NODE_ORTHO(100),
@@ -136,6 +158,9 @@ const GeoLayout intro_geo_000414[] = {
             GEO_CLOSE_NODE(),
          GEO_CLOSE_NODE(),
       GEO_CLOSE_NODE(),
+#if MIRROR_MODE == 1
+   GEO_ASM(0, geo_invert_off),
+#endif
    GEO_CLOSE_NODE(),
    GEO_END(),
 };

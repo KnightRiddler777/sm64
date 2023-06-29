@@ -10,6 +10,7 @@
 #include "game/ingame_menu.h"
 #include "game/level_update.h"
 #include "game/memory.h"
+#include "game/rendering_graph_node.h"
 #include "game/object_helpers.h"
 #include "game/object_list_processor.h"
 #include "game/save_file.h"
@@ -109,6 +110,9 @@ void bhv_act_selector_init(void) {
     s32 selectorModelIDs[10];
     u8 stars = save_file_get_star_flags(gCurrSaveFileNum - 1, COURSE_NUM_TO_INDEX(gCurrCourseNum));
 
+#if MIRROR_MODE == 1
+    isGameFlipped = FALSE;
+#endif
     sVisibleStars = 0;
     while (i != sObtainedStars) {
         if (stars & (1 << sVisibleStars)) { // Star has been collected
@@ -167,7 +171,9 @@ void bhv_act_selector_loop(void) {
     s8 i;
     u8 starIndexCounter;
     u8 stars = save_file_get_star_flags(gCurrSaveFileNum - 1, COURSE_NUM_TO_INDEX(gCurrCourseNum));
-
+#if MIRROR_MODE == 1
+    isGameFlipped = FALSE;
+#endif
     if (sObtainedStars != 6) {
         // Sometimes, stars are not selectable even if they appear on the screen.
         // This code filters selectable and non-selectable stars.
@@ -209,9 +215,11 @@ void print_course_number(s16 language) {
 void print_course_number(void) {
 #endif
     u8 courseNum[4];
-
+#if MIRROR_MODE == 1
+    isGameFlipped = FALSE;
+#endif
     create_dl_translation_matrix(MENU_MTX_PUSH, 158.0f, 81.0f, 0.0f);
-
+    gSPGeometryMode(gDisplayListHead++, G_CULL_BACK, G_CULL_FRONT);
     // Full wood texture in JP & US, lower part of it on EU
     gSPDisplayList(gDisplayListHead++, dl_menu_rgba16_wood_course);
 
@@ -245,6 +253,7 @@ void print_course_number(void) {
     }
 
     gSPDisplayList(gDisplayListHead++, dl_rgba16_text_end);
+    gSPGeometryMode(gDisplayListHead++, G_CULL_FRONT, G_CULL_BACK);
 }
 
 #ifdef VERSION_JP

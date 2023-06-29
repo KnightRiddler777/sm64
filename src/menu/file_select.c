@@ -14,6 +14,7 @@
 #include "game/object_helpers.h"
 #include "game/object_list_processor.h"
 #include "game/print.h"
+#include "game/rendering_graph_node.h"
 #include "game/save_file.h"
 #include "game/segment2.h"
 #include "game/segment7.h"
@@ -2842,11 +2843,32 @@ static void print_file_select_strings(void) {
 Gfx *geo_file_select_strings_and_menu_cursor(s32 callContext, UNUSED struct GraphNode *node, UNUSED Mat4 mtx) {
     if (callContext == GEO_CONTEXT_RENDER) {
         print_file_select_strings();
+#if MIRROR_MODE == 1
+	gSPGeometryMode(gDisplayListHead++, G_CULL_BACK, G_CULL_FRONT);
+#endif
         print_menu_cursor();
+#if MIRROR_MODE == 1
+	gSPGeometryMode(gDisplayListHead++, G_CULL_FRONT, G_CULL_BACK);
+#endif
     }
     return NULL;
 }
 
+#if MIRROR_MODE == 1
+Gfx *geo_invert(s32 callContext, UNUSED struct GraphNode *node, UNUSED Mat4 mtx) {
+    if (callContext == GEO_CONTEXT_RENDER) {
+	gSPGeometryMode(gDisplayListHead++, G_CULL_BACK, G_CULL_FRONT);
+    }
+    return NULL;
+}
+
+Gfx *geo_invert_off(s32 callContext, UNUSED struct GraphNode *node, UNUSED Mat4 mtx) {
+    if (callContext == GEO_CONTEXT_RENDER) {
+	gSPGeometryMode(gDisplayListHead++, G_CULL_FRONT, G_CULL_BACK);
+    }
+    return NULL;
+}
+#endif
 /**
  * Initiates file select values after Mario Screen.
  * Relocates cursor position of the last save if the game goes back to the Mario Screen

@@ -25,6 +25,7 @@
 #include "eu_translation.h"
 #include "segment_symbols.h"
 #endif
+#include "rendering_graph_node.h"
 #include "level_table.h"
 #include "course_table.h"
 #include "rumble_init.h"
@@ -1131,7 +1132,9 @@ UNUSED static s32 play_mode_unused(void) {
 
 s32 update_level(void) {
     s32 changeLevel;
-
+#if MIRROR_MODE == 1
+    isGameFlipped = TRUE;
+#endif
     switch (sCurrPlayMode) {
         case PLAY_MODE_NORMAL:
             changeLevel = play_mode_normal();
@@ -1272,7 +1275,6 @@ s32 lvl_init_from_save_file(UNUSED s16 arg0, s32 levelNum) {
     gSavedCourseNum = COURSE_NONE;
     gCurrCreditsEntry = NULL;
     gSpecialTripleJump = FALSE;
-
     init_mario_from_save_file();
     disable_warp_checkpoint();
     save_file_move_cap_to_default_location();

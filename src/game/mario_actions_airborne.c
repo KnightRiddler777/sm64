@@ -478,6 +478,9 @@ s32 act_double_jump(struct MarioState *m) {
 }
 
 s32 act_triple_jump(struct MarioState *m) {
+#if MIRROR_MODE == 1
+    gSpecialTripleJump = TRUE;
+#endif
     if (gSpecialTripleJump) {
         return set_mario_action(m, ACT_SPECIAL_TRIPLE_JUMP, 0);
     }
@@ -2027,8 +2030,42 @@ s32 act_special_triple_jump(struct MarioState *m) {
             break;
 
         case AIR_STEP_HIT_WALL:
+#if MIRROR_MODE == 1
+            if (m->forwardVel > 16.0f) {
+                mario_bonk_reflection(m, FALSE);
+                m->faceAngle[1] += 0x8000;
+
+                if (m->wall != NULL) {
+                    set_mario_action(m, ACT_AIR_HIT_WALL, 0);
+                } else {
+                    if (m->vel[1] > 0.0f) m->vel[1] = 0.0f;
+                    if (m->forwardVel >= 38.0f) {
+                        m->particleFlags |= PARTICLE_DUST;
+                        set_mario_action(m, ACT_BACKWARD_AIR_KB, 0);
+                    } else {
+                        if (m->forwardVel > 8.0f) mario_set_forward_vel(m, -8.0f);
+                        return set_mario_action(m, ACT_SOFT_BONK, 0);
+		    }
+                }
+            } else {
+                mario_set_forward_vel(m, 0.0f);
+	    }
+            break;
+#else
             mario_bonk_reflection(m, TRUE);
             break;
+#endif
+
+#if MIRROR_MODE == 1
+        case AIR_STEP_GRABBED_LEDGE:
+            set_mario_animation(m, MARIO_ANIM_IDLE_ON_LEDGE);
+            drop_and_set_mario_action(m, ACT_LEDGE_GRAB, 0);
+            break;
+
+        case AIR_STEP_GRABBED_CEILING:
+            set_mario_action(m, ACT_START_HANGING, 0);
+            break;
+#endif
     }
 
     if (m->actionState == 0 || m->vel[1] > 0.0f) {
@@ -2038,8 +2075,9 @@ s32 act_special_triple_jump(struct MarioState *m) {
     } else {
         set_mario_animation(m, MARIO_ANIM_GENERAL_FALL);
     }
-
+#if MIRROR_MODE != 1
     m->particleFlags |= PARTICLE_SPARKLES;
+#endif
     return FALSE;
 }
 

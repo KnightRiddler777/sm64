@@ -2009,7 +2009,11 @@ void do_cutscene_handler(void) {
     #define STR_X 53
     #define STR_Y 136
 #else
+#if MIRROR_MODE == 1
+    #define STR_X 180
+#else
     #define STR_X 38
+#endif
     #define STR_Y 142
 #endif
 
@@ -2038,8 +2042,12 @@ void print_peach_letter_message(void) {
     dialog = segmented_to_virtual(dialogTable[gDialogID]);
     str = segmented_to_virtual(dialog->str);
 
+#if MIRROR_MODE == 1
+    gSPGeometryMode(gDisplayListHead++, G_CULL_BACK, G_CULL_FRONT);
+    create_dl_translation_matrix(MENU_MTX_PUSH, 223.0f, 118.0f, 0);
+#else
     create_dl_translation_matrix(MENU_MTX_PUSH, 97.0f, 118.0f, 0);
-
+#endif
     gDPSetEnvColor(gDisplayListHead++, 255, 255, 255, gCutsceneMsgFade);
     gSPDisplayList(gDisplayListHead++, castle_grounds_seg7_dl_0700EA58);
     gSPPopMatrix(gDisplayListHead++, G_MTX_MODELVIEW);
@@ -2055,6 +2063,9 @@ void print_peach_letter_message(void) {
     gSPDisplayList(gDisplayListHead++, dl_ia_text_end);
     gDPSetEnvColor(gDisplayListHead++, 200, 80, 120, gCutsceneMsgFade);
     gSPDisplayList(gDisplayListHead++, castle_grounds_seg7_us_dl_0700F2E8);
+#endif
+#if MIRROR_MODE == 1
+    gSPGeometryMode(gDisplayListHead++, G_CULL_FRONT, G_CULL_BACK);
 #endif
 
     // at the start/end of message, reset the fade.
@@ -2090,6 +2101,9 @@ void print_peach_letter_message(void) {
  * Formed by four triangles.
  */
 void render_hud_cannon_reticle(void) {
+#if MIRROR_MODE == 1
+    gSPGeometryMode(gDisplayListHead++, G_CULL_BACK, G_CULL_FRONT);
+#endif
     create_dl_translation_matrix(MENU_MTX_PUSH, 160.0f, 120.0f, 0);
 
     gDPSetEnvColor(gDisplayListHead++, 50, 50, 50, 180);
@@ -2113,6 +2127,9 @@ void render_hud_cannon_reticle(void) {
     gSPPopMatrix(gDisplayListHead++, G_MTX_MODELVIEW);
 
     gSPPopMatrix(gDisplayListHead++, G_MTX_MODELVIEW);
+#if MIRROR_MODE == 1
+    gSPGeometryMode(gDisplayListHead++, G_CULL_FRONT, G_CULL_BACK);
+#endif
 }
 
 void reset_red_coins_collected(void) {
@@ -2149,6 +2166,9 @@ void print_animated_red_coin(s16 x, s16 y) {
 
     create_dl_translation_matrix(MENU_MTX_PUSH, x, y, 0);
     create_dl_scale_matrix(MENU_MTX_NOPUSH, 0.2f, 0.2f, 1.0f);
+#if MIRROR_MODE == 1
+    gSPGeometryMode(gDisplayListHead++, G_CULL_BACK, G_CULL_FRONT);
+#endif
     gDPSetRenderMode(gDisplayListHead++, G_RM_TEX_EDGE, G_RM_TEX_EDGE2);
 
     switch (globalTimer & 6) {
@@ -2168,6 +2188,9 @@ void print_animated_red_coin(s16 x, s16 y) {
 
     gDPSetRenderMode(gDisplayListHead++, G_RM_AA_ZB_OPA_SURF, G_RM_AA_ZB_OPA_SURF2);
     gSPPopMatrix(gDisplayListHead++, G_MTX_MODELVIEW);
+#if MIRROR_MODE == 1
+    gSPGeometryMode(gDisplayListHead++, G_CULL_FRONT, G_CULL_BACK);
+#endif
 }
 
 void render_pause_red_coins(void) {

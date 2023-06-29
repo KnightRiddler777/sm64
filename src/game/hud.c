@@ -14,6 +14,8 @@
 #include "save_file.h"
 #include "print.h"
 
+Mtx *mtx;
+
 /* @file hud.c
  * This file implements HUD rendering and power meter animations.
  * That includes stars, lives, coins, camera status, power meter, timer
@@ -106,7 +108,10 @@ void render_power_meter_health_segment(s16 numHealthWedges) {
  * That includes the "POWER" base and the colored health segment textures.
  */
 void render_dl_power_meter(s16 numHealthWedges) {
-    Mtx *mtx = alloc_display_list(sizeof(Mtx));
+#if MIRROR_MODE == 1
+    gSPGeometryMode(gDisplayListHead++, G_CULL_BACK, G_CULL_FRONT);
+#endif
+    mtx = alloc_display_list(sizeof(Mtx));
 
     if (mtx == NULL) {
         return;
@@ -125,6 +130,9 @@ void render_dl_power_meter(s16 numHealthWedges) {
     }
 
     gSPPopMatrix(gDisplayListHead++, G_MTX_MODELVIEW);
+#if MIRROR_MODE == 1
+    gSPGeometryMode(gDisplayListHead++, G_CULL_FRONT, G_CULL_BACK);
+#endif
 }
 
 /**

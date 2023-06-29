@@ -29,6 +29,7 @@
 #include "object_helpers.h"
 #include "object_list_processor.h"
 #include "print.h"
+#include "rendering_graph_node.h"
 #include "save_file.h"
 #include "sound_init.h"
 #include "rumble_init.h"

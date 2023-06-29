@@ -143,6 +143,9 @@ const GeoLayout geo_menu_generic_button[] = {
 const GeoLayout geo_menu_file_select_strings_and_menu_cursor[] = {
    GEO_NODE_SCREEN_AREA(10, SCREEN_WIDTH/2, SCREEN_HEIGHT/2, SCREEN_WIDTH/2, SCREEN_HEIGHT/2),
    GEO_OPEN_NODE(),
+#if MIRROR_MODE == 1
+      GEO_ASM(0, geo_invert),
+#endif
       GEO_ZBUFFER(0),
       GEO_OPEN_NODE(),
          GEO_NODE_ORTHO(100),
@@ -164,6 +167,9 @@ const GeoLayout geo_menu_file_select_strings_and_menu_cursor[] = {
       GEO_OPEN_NODE(),
          GEO_ASM(0, geo_file_select_strings_and_menu_cursor),
       GEO_CLOSE_NODE(),
+#if MIRROR_MODE == 1
+   GEO_ASM(0, geo_invert_off),
+#endif
    GEO_CLOSE_NODE(),
    GEO_END(),
 };

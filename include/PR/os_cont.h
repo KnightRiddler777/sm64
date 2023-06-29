@@ -147,8 +147,13 @@ typedef struct {
 #define R_JPAD		CONT_RIGHT
 #define D_JPAD		CONT_DOWN
 #define U_CBUTTONS	CONT_E
+#ifdef MIRROR_MODE
+#define L_CBUTTONS	CONT_F
+#define R_CBUTTONS	CONT_C
+#else
 #define L_CBUTTONS	CONT_C
 #define R_CBUTTONS	CONT_F
+#endif
 #define D_CBUTTONS	CONT_D
 
 /* Controller error number */

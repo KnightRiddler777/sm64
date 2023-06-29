@@ -2381,7 +2381,11 @@ void start_view_dl(struct ObjView *view) {
 
     gDPSetScissor(next_gfx(), G_SC_NON_INTERLACE, ulx, uly, lrx, lry);
     gSPClearGeometryMode(next_gfx(), 0xFFFFFFFF);
+#if MIRROR_MODE == 1
+    gSPSetGeometryMode(next_gfx(), G_LIGHTING | G_CULL_FRONT | G_SHADING_SMOOTH | G_SHADE);
+#else
     gSPSetGeometryMode(next_gfx(), G_LIGHTING | G_CULL_BACK | G_SHADING_SMOOTH | G_SHADE);
+#endif
     if (view->flags & VIEW_ALLOC_ZBUF) {
         gSPSetGeometryMode(next_gfx(), G_ZBUFFER);
     }
@@ -2409,7 +2413,11 @@ void parse_p1_controller(void) {
     currInputs = &sGdContPads[0];
     prevInputs = &sPrevFrameCont[0];
     // stick values
+#if MIRROR_MODE == 1
+    gdctrl->stickXf     = -currInputs->stick_x;
+#else
     gdctrl->stickXf     = currInputs->stick_x;
+#endif
     gdctrl->stickYf     = currInputs->stick_y;
     gdctrl->stickDeltaX = gdctrl->stickX;
     gdctrl->stickDeltaY = gdctrl->stickY;
@@ -2422,8 +2430,13 @@ void parse_p1_controller(void) {
     gdctrl->trgR   = (currInputs->button & R_TRIG) != 0;
     gdctrl->btnA   = (currInputs->button & A_BUTTON) != 0;
     gdctrl->btnB   = (currInputs->button & B_BUTTON) != 0;
+#if MIRROR_MODE == 1
+    gdctrl->cleft  = (currInputs->button & R_CBUTTONS) != 0;
+    gdctrl->cright = (currInputs->button & L_CBUTTONS) != 0;
+#else
     gdctrl->cleft  = (currInputs->button & L_CBUTTONS) != 0;
     gdctrl->cright = (currInputs->button & R_CBUTTONS) != 0;
+#endif
     gdctrl->cup    = (currInputs->button & U_CBUTTONS) != 0;
     gdctrl->cdown  = (currInputs->button & D_CBUTTONS) != 0;
     // but not these buttons??
@@ -2639,10 +2652,18 @@ void gd_setproperty(enum GdProperty prop, f32 f1, f32 f2, f32 f3) {
             parm = (s32) f1;
             switch (parm) {
                 case 1:
+#if MIRROR_MODE == 1
+                    gSPSetGeometryMode(next_gfx(), G_CULL_FRONT);
+#else
                     gSPSetGeometryMode(next_gfx(), G_CULL_BACK);
+#endif
                     break;
                 case 0:
+#if MIRROR_MODE == 1
+                    gSPClearGeometryMode(next_gfx(), G_CULL_FRONT);
+#else
                     gSPClearGeometryMode(next_gfx(), G_CULL_BACK);
+#endif
                     break;
             }
             break;
