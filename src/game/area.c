@@ -288,8 +288,11 @@ void change_area(s32 index) {
     }
 }
 
-void area_update_objects(void) {
+s32 gUpdateCamera;
+
+void area_update_objects(s32 camera) {
     gAreaUpdateCounter++;
+    gUpdateCamera = camera;
     update_objects(0);
 }
 

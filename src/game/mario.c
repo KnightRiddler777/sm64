@@ -884,7 +884,7 @@ static u32 set_mario_action_airborne(struct MarioState *m, u32 action, u32 actio
             break;
     }
 
-    m->peakHeight = m->pos[1];
+    m->peakHeight = 0;
     m->flags |= MARIO_UNKNOWN_08;
 
     return action;
@@ -983,6 +983,7 @@ u32 set_mario_action(struct MarioState *m, u32 action, u32 actionArg) {
             break;
 
         case ACT_GROUP_AIRBORNE:
+	    m->maxAirFVel = (action == ACT_LONG_JUMP ? 48.f : 32.f);
             action = set_mario_action_airborne(m, action, actionArg);
             break;
 
@@ -1320,15 +1321,6 @@ void update_mario_geometry_inputs(struct MarioState *m) {
 
     m->floorHeight = find_floor(m->pos[0], m->pos[1], m->pos[2], &m->floor);
 
-    // If Mario is OOB, move his position to his graphical position (which was not updated)
-    // and check for the floor there.
-    // This can cause errant behavior when combined with astral projection,
-    // since the graphical position was not Mario's previous location.
-    if (m->floor == NULL) {
-        vec3f_copy(m->pos, m->marioObj->header.gfx.pos);
-        m->floorHeight = find_floor(m->pos[0], m->pos[1], m->pos[2], &m->floor);
-    }
-
     m->ceilHeight = vec3f_find_ceil(&m->pos[0], m->floorHeight, &m->ceil);
     gasLevel = find_poison_gas_level(m->pos[0], m->pos[2]);
     m->waterLevel = find_water_level(m->pos[0], m->pos[2]);
@@ -1363,7 +1355,7 @@ void update_mario_geometry_inputs(struct MarioState *m) {
         }
 
     } else {
-        level_trigger_warp(m, WARP_OP_DEATH);
+        m->input |= INPUT_OFF_FLOOR;
     }
 }
 
@@ -1651,6 +1643,7 @@ void mario_update_hitbox_and_cap_model(struct MarioState *m) {
     } else {
         m->marioObj->hitboxHeight = 160.0f;
     }
+    m->marioObj->hitboxDownOffset = 160.f;
 
     if ((m->flags & MARIO_TELEPORTING) && (m->fadeWarpOpacity != 0xFF)) {
         bodyState->modelState &= ~0xFF;
@@ -1706,11 +1699,6 @@ s32 execute_mario_action(UNUSED struct Object *o) {
         mario_handle_special_floors(gMarioState);
         mario_process_interactions(gMarioState);
 
-        // If Mario is OOB, stop executing actions.
-        if (gMarioState->floor == NULL) {
-            return 0;
-        }
-
         // The function can loop through many action shifts in one frame,
         // which can lead to unexpected sub-frame behavior. Could potentially hang
         // if a loop of actions were found, but there has not been a situation found.
@@ -1755,14 +1743,14 @@ s32 execute_mario_action(UNUSED struct Object *o) {
 
         // Both of the wind handling portions play wind audio only in
         // non-Japanese releases.
-        if (gMarioState->floor->type == SURFACE_HORIZONTAL_WIND) {
+        if (gMarioState->floor && gMarioState->floor->type == SURFACE_HORIZONTAL_WIND) {
             spawn_wind_particles(0, (gMarioState->floor->force << 8));
 #ifndef VERSION_JP
             play_sound(SOUND_ENV_WIND2, gMarioState->marioObj->header.gfx.cameraToObject);
 #endif
         }
 
-        if (gMarioState->floor->type == SURFACE_VERTICAL_WIND) {
+        if (gMarioState->floor && gMarioState->floor->type == SURFACE_VERTICAL_WIND) {
             spawn_wind_particles(1, 0);
 #ifndef VERSION_JP
             play_sound(SOUND_ENV_WIND2, gMarioState->marioObj->header.gfx.cameraToObject);
@@ -1828,6 +1816,7 @@ void init_mario(void) {
     vec3s_set(gMarioState->angleVel, 0, 0, 0);
     vec3s_to_vec3f(gMarioState->pos, gMarioSpawnInfo->startPos);
     vec3f_set(gMarioState->vel, 0, 0, 0);
+    vec3f_set(gGravityVector, 0, 1, 0);
     gMarioState->floorHeight =
         find_floor(gMarioState->pos[0], gMarioState->pos[1], gMarioState->pos[2], &gMarioState->floor);
 

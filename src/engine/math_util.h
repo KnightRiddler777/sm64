@@ -32,6 +32,12 @@ extern f32 gCosineTable[];
 
 #define sqr(x) ((x) * (x))
 
+extern Vec3f gGravityVector;
+extern Mat4 gWorldToLocalGravTransformMtx;
+extern Mat4 gWorldToLocalGravRotationMtx;
+extern Mat4 gLocalToWorldGravTransformMtx;
+extern Mat4 gLocalToWorldGravRotationMtx;
+
 void *vec3f_copy(Vec3f dest, Vec3f src);
 void *vec3f_set(Vec3f dest, f32 x, f32 y, f32 z);
 void *vec3f_add(Vec3f dest, Vec3f a);
@@ -55,9 +61,12 @@ void mtxf_rotate_xyz_and_translate(Mat4 dest, Vec3f b, Vec3s c);
 void mtxf_billboard(Mat4 dest, Mat4 mtx, Vec3f position, s16 angle);
 void mtxf_align_terrain_normal(Mat4 dest, Vec3f upDir, Vec3f pos, s16 yaw);
 void mtxf_align_terrain_triangle(Mat4 mtx, Vec3f pos, s16 yaw, f32 radius);
+void create_world_to_local_transform_matrix(void);
+void create_local_to_world_transform_matrix(void);
 void mtxf_mul(Mat4 dest, Mat4 a, Mat4 b);
 void mtxf_scale_vec3f(Mat4 dest, Mat4 mtx, Vec3f s);
 void mtxf_mul_vec3s(Mat4 mtx, Vec3s b);
+void mtxf_mul_vec3f(Mat4 mtx, Vec3f b);
 void mtxf_to_mtx(Mtx *dest, Mat4 src);
 void mtxf_rotate_xy(Mtx *mtx, s16 angle);
 void get_pos_from_transform_mtx(Vec3f dest, Mat4 objMtx, Mat4 camMtx);

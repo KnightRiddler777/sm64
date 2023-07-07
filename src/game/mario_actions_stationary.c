@@ -19,7 +19,7 @@
 
 s32 check_common_idle_cancels(struct MarioState *m) {
     mario_drop_held_object(m);
-    if (m->floor->normal.y < 0.29237169f) {
+    if (m->floor && m->floor->normal.y < 0.29237169f) {
         return mario_push_off_steep_floor(m, ACT_FREEFALL, 0);
     }
 
@@ -821,7 +821,6 @@ s32 act_shockwave_bounce(struct MarioState *m) {
         m->pos[1] = m->floorHeight - sins(sp1E) * sp18;
     }
 
-    vec3f_copy(m->marioObj->header.gfx.pos, m->pos);
     vec3s_set(m->marioObj->header.gfx.angle, 0, m->faceAngle[1], 0);
     set_mario_animation(m, MARIO_ANIM_A_POSE);
     return FALSE;

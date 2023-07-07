@@ -220,8 +220,6 @@ struct Surface {
     /*0x02*/ s16 force;
     /*0x04*/ s8 flags;
     /*0x05*/ s8 room;
-    /*0x06*/ s16 lowerY;
-    /*0x08*/ s16 upperY;
     /*0x0A*/ Vec3s vertex1;
     /*0x10*/ Vec3s vertex2;
     /*0x16*/ Vec3s vertex3;
@@ -232,6 +230,7 @@ struct Surface {
     } normal;
     /*0x28*/ f32 originOffset;
     /*0x2C*/ struct Object *object;
+    /*0x30*/ struct Surface *origSurf;
 };
 
 struct MarioBodyState {
@@ -276,6 +275,7 @@ struct MarioState {
     /*0x54*/ f32 forwardVel;
     /*0x58*/ f32 slideVelX;
     /*0x5C*/ f32 slideVelZ;
+	     f32 maxAirFVel;
     /*0x60*/ struct Surface *wall;
     /*0x64*/ struct Surface *ceil;
     /*0x68*/ struct Surface *floor;

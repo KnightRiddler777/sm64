@@ -146,7 +146,7 @@ extern struct Area *gCurrentArea;
 
 extern s16 gCurrSaveFileNum;
 extern s16 gCurrLevelNum;
-
+extern s32 gUpdateCamera;
 
 void override_viewport_and_clip(Vp *a, Vp *b, u8 c, u8 d, u8 e);
 void print_intro_text(void);
@@ -159,7 +159,7 @@ void unload_area(void);
 void load_mario_area(void);
 void unload_mario_area(void);
 void change_area(s32 index);
-void area_update_objects(void);
+void area_update_objects(s32);
 void play_transition(s16 transType, s16 time, u8 red, u8 green, u8 blue);
 void play_transition_after_delay(s16 transType, s16 time, u8 red, u8 green, u8 blue, s16 delay);
 void render_game(void);
