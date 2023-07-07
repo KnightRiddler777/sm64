@@ -323,7 +323,16 @@ static void geo_process_camera(struct GraphNodeCamera *node) {
 
     // Apply gravity transformation to camera
     if ((gCurrentArea != NULL) && gUpdateCamera) {
-        mtxf_mul(cameraTransform, gWorldToLocalGravTransformMtx, cameraTransform);
+	switch (gCurrentArea->camera->cutscene) {
+	    case CUTSCENE_INTRO_PEACH:
+	    case CUTSCENE_END_WAVING:
+	    case CUTSCENE_CREDITS:
+	    case CUTSCENE_ENDING:
+	    case CUTSCENE_ENTER_BOWSER_ARENA:
+		break;
+	    default:
+		mtxf_mul(cameraTransform, gWorldToLocalGravTransformMtx, cameraTransform);
+	}
     }
 
     mtxf_mul(gMatStack[gMatStackIndex + 1], cameraTransform, gMatStack[gMatStackIndex]);
