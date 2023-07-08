@@ -13,6 +13,7 @@
 #include "interaction.h"
 #include "level_update.h"
 #include "mario.h"
+#include "mario_actions_moving.h"
 #include "memory.h"
 #include "object_collision.h"
 #include "object_helpers.h"
@@ -218,13 +219,38 @@ struct ParticleProperties sParticleTypes[] = {
     { 0, 0, MODEL_NONE, NULL },
 };
 
+Vec3f marioShellFrameDisplacement;
+
+void transform_mario_gfx_pos(void) {
+    Mat4 transfMat;
+    Vec3f translVec;
+
+    if (gUseMarioThrowMtx) {
+        mtxf_copy(transfMat, gMarioObject->header.gfx.throwMatrix);
+        gUseMarioThrowMtx = FALSE;
+    } else {
+        vec3f_copy(translVec,marioShellFrameDisplacement);
+
+        // Apply the movement Mario has done in the frame (gMarioStates[i].pos) and rotate him
+        if ((gMarioState->action == ACT_RIDING_SHELL_GROUND) ||
+            (gMarioState->action == ACT_RIDING_SHELL_JUMP) ||
+            (gMarioState->action == ACT_RIDING_SHELL_FALL)) {
+            translVec[1] += 42.f;
+        }
+        translVec[1] -= gMarioState->quicksandDepth;
+        mtxf_rotate_zxy_and_translate(transfMat, translVec, gMarioObject->header.gfx.angle);
+    }
+    // Combine with gravity transform matrix
+    mtxf_mul(gMarioObject->transform, transfMat, gLocalToWorldGravTransformMtx);
+    gMarioObject->header.gfx.throwMatrix = gMarioObject->transform;
+}
+
 /**
  * Copy position, velocity, and angle variables from MarioState to the Mario
  * object.
  */
 void copy_mario_state_to_object(void) {
     s32 i = 0;
-    Mat4 transfMat;
 
     // L is real
     if (gCurrentObject != gMarioObject) {
@@ -243,18 +269,11 @@ void copy_mario_state_to_object(void) {
     vec3f_copy(&gCurrentObject->oPosX, gMarioStates[i].pos);
     mtxf_mul_vec3f(gLocalToWorldGravTransformMtx, &gCurrentObject->oPosX);
 
-    // Update Mario's graphical position
-    vec3f_copy(gCurrentObject->header.gfx.pos, &gCurrentObject->oPosX);
-
-    // Transform Mario's rotation correctly
-    mtxf_copy(gCurrentObject->transform,gLocalToWorldGravTransformMtx);
-    // Apply the movement Mario has done in the frame (gMarioStates[i].pos) and rotate him
-    mtxf_rotate_zxy_and_translate(transfMat, gMarioStates[i].pos, gCurrentObject->header.gfx.angle);
-    // Combine with gravity transform matrix
-    mtxf_mul(gCurrentObject->transform, transfMat, gCurrentObject->transform);
-    gCurrentObject->header.gfx.throwMatrix = gCurrentObject->transform;
-
+    vec3f_copy(marioShellFrameDisplacement, gMarioStates[i].pos);
     vec3f_copy(gMarioStates[i].pos, &gCurrentObject->oPosX);
+
+    // Update Mario's graphical position, only for shadow
+    vec3f_copy(gMarioObject->header.gfx.pos, &gCurrentObject->oPosX);
 
     gCurrentObject->oMoveAnglePitch = gCurrentObject->header.gfx.angle[0];
     gCurrentObject->oMoveAngleYaw = gCurrentObject->header.gfx.angle[1];
@@ -324,6 +343,10 @@ f32 calculate_sphere_field(Vec3f grav, Vec3f relPos) {
 	return vec3f_mag(grav);
 }
 
+f32 marioTrueFloorHeight = 0.f;
+s16 marioTrueFloorForce = 0;
+s16 marioTrueFloorType = SURFACE_DEFAULT;
+
 /**
  * Mario's primary behavior update function.
  */
@@ -332,12 +355,14 @@ void bhv_mario_update(void) {
     s32 i;
     s16 angToFvel; f32 marioSpeed;
     s16 yawChange;
+    struct Surface *floor;
 
-    clear_dynamic_and_transformed_surfaces();
-
-    if (gMarioObject->oPosY == 0.f) {
-	gMarioObject->oPosY = 10000.f;
-    }
+    // Find special surfaces under Mario
+    gCurrentObject = NULL;
+    marioTrueFloorHeight = find_floor(gMarioObject->oPosX, gMarioObject->oPosY, gMarioObject->oPosZ, &floor);
+    marioTrueFloorType = (floor == NULL ? -1 : floor->type);
+    marioTrueFloorForce = (floor == NULL ? 0 : floor->force);
+    gCurrentObject = gMarioObject;
 
     // Create the matrices from the gravity vector
     create_local_to_world_transform_matrix();
@@ -360,7 +385,14 @@ void bhv_mario_update(void) {
         gMarioState->faceAngle[1] = atan2s(marioAngGrav[2], marioAngGrav[0]);
 
         angToFvel = atan2s(marioVelGrav[2], marioVelGrav[0]) - gMarioState->faceAngle[1];
-        marioSpeed = sqrtf(marioVelGrav[0]*marioVelGrav[0] + marioVelGrav[2]*marioVelGrav[2]);
+        marioSpeed = marioVelGrav[0]*marioVelGrav[0] + marioVelGrav[2]*marioVelGrav[2];
+
+        if ((gMarioState->action == ACT_FLYING) || ((gMarioState->action & ACT_FLAG_SWIMMING) && !(gMarioState->action == ACT_WATER_PLUNGE)))
+        {
+            marioSpeed += marioVelGrav[1]*marioVelGrav[1]; // might need to check swimming too
+        }
+
+        marioSpeed = sqrtf(marioSpeed);
 
 	newFVel	= marioSpeed * coss(angToFvel);
 	gMarioState->maxAirFVel -= max(gMarioState->forwardVel - newFVel, 0);
@@ -780,6 +812,7 @@ void update_objects(UNUSED s32 unused) {
 
     // Update spawners and objects with surfaces
     cycleCounts[2] = get_clock_difference(cycleCounts[0]);
+    clear_dynamic_and_transformed_surfaces();
     update_terrain_objects();
 
     // If Mario was touching a moving platform at the end of last frame, apply

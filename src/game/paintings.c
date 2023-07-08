@@ -1262,12 +1262,13 @@ Gfx *geo_painting_draw(s32 callContext, struct GraphNode *node, UNUSED void *con
     return paintingDlist;
 }
 
+extern struct MarioState *gMarioState;
+extern s16 marioTrueFloorType;
+
 /**
  * Update the painting system's local copy of Mario's current floor and position.
  */
 Gfx *geo_painting_update(s32 callContext, UNUSED struct GraphNode *node, UNUSED Mat4 c) {
-    struct Surface *surface;
-
     // Reset the update counter
     if (callContext != GEO_CONTEXT_RENDER) {
         gLastPaintingUpdateCounter = gAreaUpdateCounter - 1;
@@ -1277,8 +1278,7 @@ Gfx *geo_painting_update(s32 callContext, UNUSED struct GraphNode *node, UNUSED 
         gPaintingUpdateCounter = gAreaUpdateCounter;
 
         // Store Mario's floor and position
-        find_floor(gMarioObject->oPosX, gMarioObject->oPosY, gMarioObject->oPosZ, &surface);
-        gPaintingMarioFloorType = surface->type;
+        gPaintingMarioFloorType = marioTrueFloorType;
         gPaintingMarioXPos = gMarioObject->oPosX;
         gPaintingMarioYPos = gMarioObject->oPosY;
         gPaintingMarioZPos = gMarioObject->oPosZ;

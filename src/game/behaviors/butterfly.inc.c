@@ -59,7 +59,7 @@ void butterfly_act_rest(void) {
         cur_obj_init_animation(0);
 
         o->oAction = BUTTERFLY_ACT_FOLLOW_MARIO;
-        o->oMoveAngleYaw = gMarioObject->header.gfx.angle[1];
+        o->oMoveAngleYaw = gMarioState->faceAngle[1];
     }
 }
 

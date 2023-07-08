@@ -502,7 +502,7 @@ void create_local_to_world_transform_matrix(void) {
     vec3f_normalize(gGravityVector);
 
     if ((gGravityVector[1] > 0.9999f) || (gGravityVector[1] < -0.9999f)) {
-        vec3f_set(forward, 0, 0, 1);
+        vec3f_set(forward, 0, 0, -1);
         vec3f_cross(xColumn, forward, gGravityVector);
     } else
         vec3f_set(xColumn, -gGravityVector[1]*gGravityVector[0], 1-gGravityVector[1]*gGravityVector[1], -gGravityVector[1]*gGravityVector[2]);
@@ -559,19 +559,17 @@ void create_world_to_local_transform_matrix(void) {
 
     // Create an inverse of the rotational part of the other matrix
     // Because it is only a rotation, the determinant is always 1
-    g_wtl[0][0] = g_ltw[1][1] * g_ltw[2][2] - g_ltw[2][1] * g_ltw[1][2];
-    g_wtl[0][1] = g_ltw[2][1] * g_ltw[0][2] - g_ltw[0][1] * g_ltw[2][2];
-    g_wtl[0][2] = g_ltw[0][1] * g_ltw[1][2] - g_ltw[1][1] * g_ltw[0][2];
+    g_wtl[0][0] = g_ltw[0][0];
+    g_wtl[0][1] = g_ltw[1][0];
+    g_wtl[0][2] = g_ltw[2][0];
+    g_wtl[1][0] = g_ltw[0][1];
+    g_wtl[1][1] = g_ltw[1][1];
+    g_wtl[1][2] = g_ltw[2][1];
+    g_wtl[2][0] = g_ltw[0][2];
+    g_wtl[2][1] = g_ltw[1][2];
+    g_wtl[2][2] = g_ltw[2][2];
     g_wtl[0][3] = 0;
-
-    g_wtl[1][0] = g_ltw[2][0] * g_ltw[1][2] - g_ltw[1][0] * g_ltw[2][2];
-    g_wtl[1][1] = g_ltw[0][0] * g_ltw[2][2] - g_ltw[2][0] * g_ltw[0][2];
-    g_wtl[1][2] = g_ltw[1][0] * g_ltw[0][2] - g_ltw[0][0] * g_ltw[1][2];
     g_wtl[1][3] = 0;
-
-    g_wtl[2][0] = g_ltw[1][0] * g_ltw[2][1] - g_ltw[2][0] * g_ltw[1][1];
-    g_wtl[2][1] = g_ltw[2][0] * g_ltw[0][1] - g_ltw[0][0] * g_ltw[2][1];
-    g_wtl[2][2] = g_ltw[0][0] * g_ltw[1][1] - g_ltw[1][0] * g_ltw[0][1];
     g_wtl[2][3] = 0;
 
     g_wtl[3][0] = 0;

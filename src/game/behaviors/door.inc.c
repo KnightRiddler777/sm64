@@ -52,6 +52,7 @@ void bhv_door_loop(void) {
         if (cur_obj_clear_interact_status_flag(sDoorActions[sp1C].flag)) {
             set_door_camera_event();
             cur_obj_change_action(sDoorActions[sp1C].action);
+	    o->oTimer = 0;
         }
         sp1C++;
     }
@@ -78,7 +79,7 @@ void bhv_door_loop(void) {
             break;
     }
 
-    if (o->oAction == 0) {
+    if ((o->oAction == 0) || (o->oTimer < 15)) {
         load_object_collision_model();
     }
 

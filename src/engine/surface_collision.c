@@ -197,7 +197,13 @@ s32 find_wall_collisions(struct WallCollisionData *colData) {
         return numCollisions;
     }
 
-    node = (((gCurrentObject == gMarioObject) && (gMarioObject != NULL)) ? gStaticSurfacePartition[SPATIAL_PARTITION_WALLS].next : gStaticSurfaces[0].next);
+    if ((gCurrentObject == gMarioObject) && (gCurrentObject != NULL)) {
+        node = gStaticSurfacePartition[SPATIAL_PARTITION_WALLS].next;
+    } else {
+        node = gDynamicSurfaces.next;
+        numCollisions += find_wall_collisions_from_list(node, colData);
+        node = gStaticSurfaces[get_cell(colData->x, colData->y, colData->z)].next;
+    }
     numCollisions += find_wall_collisions_from_list(node, colData);
 
     // Increment the debug tracker.
@@ -318,7 +324,13 @@ f32 find_ceil(f32 posX, f32 posY, f32 posZ, struct Surface **pceil) {
         return height;
     }
 
-    surfaceList = (((gCurrentObject == gMarioObject) && (gMarioObject != NULL)) ? gStaticSurfacePartition[SPATIAL_PARTITION_CEILS].next : gStaticSurfaces[0].next);
+    if ((gCurrentObject == gMarioObject) && (gCurrentObject != NULL)) {
+        surfaceList = gStaticSurfacePartition[SPATIAL_PARTITION_CEILS].next;
+    } else {
+        surfaceList = gDynamicSurfaces.next;
+        dynamicCeil = find_ceil_from_list(surfaceList, x, y, z, &dynamicHeight);
+        surfaceList = gStaticSurfaces[get_cell(x, y, z)].next;
+    }
     ceil = find_ceil_from_list(surfaceList, x, y, z, &height);
 
     if (dynamicHeight < height) {
@@ -370,9 +382,14 @@ f32 find_floor_height_and_data(f32 xPos, f32 yPos, f32 zPos, struct FloorGeometr
         sFloorGeo.normalY = floor->normal.y;
         sFloorGeo.normalZ = floor->normal.z;
         sFloorGeo.originOffset = floor->originOffset;
-
-        *floorGeo = &sFloorGeo;
+    } else {
+        sFloorGeo.normalX = 0;
+        sFloorGeo.normalY = 1;
+        sFloorGeo.normalZ = 0;
+        sFloorGeo.originOffset = -1000;
     }
+
+    *floorGeo = &sFloorGeo;
     return floorHeight;
 }
 
@@ -490,7 +507,13 @@ f32 find_floor(f32 xPos, f32 yPos, f32 zPos, struct Surface **pfloor) {
         return height;
     }
 
-    surfaceList = (((gCurrentObject == gMarioObject) && (gMarioObject != NULL)) ? gStaticSurfacePartition[SPATIAL_PARTITION_FLOORS].next : gStaticSurfaces[0].next);
+    if ((gCurrentObject == gMarioObject) && (gCurrentObject != NULL)) {
+        surfaceList = gStaticSurfacePartition[SPATIAL_PARTITION_FLOORS].next;
+    } else {
+        surfaceList = gDynamicSurfaces.next;
+        dynamicFloor = find_floor_from_list(surfaceList, x, y, z, &dynamicHeight);
+        surfaceList = gStaticSurfaces[get_cell(x, y, z)].next;
+    }
     floor = find_floor_from_list(surfaceList, x, y, z, &height);
 
     // To prevent the Merry-Go-Round room from loading when Mario passes above the hole that leads

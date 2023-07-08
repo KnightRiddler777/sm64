@@ -10,6 +10,8 @@
 #include "rendering_graph_node.h"
 #include "shadow.h"
 #include "sm64.h"
+#include "object_list_processor.h"
+#include "behavior_data.h"
 
 /**
  * This file contains the code that processes the scene graph for rendering.
@@ -821,6 +823,9 @@ static void geo_process_object(struct Object *node) {
     s32 hasAnimation = (node->header.gfx.node.flags & GRAPH_RENDER_HAS_ANIMATION) != 0;
 
     if (node->header.gfx.areaIndex == gCurGraphNodeRoot->areaIndex) {
+        if (node->behavior == segmented_to_virtual(bhvMario)) {
+            transform_mario_gfx_pos();
+        }
         if (node->header.gfx.throwMatrix != NULL) {
             mtxf_mul(gMatStack[gMatStackIndex + 1], *node->header.gfx.throwMatrix,
                      gMatStack[gMatStackIndex]);

@@ -58,6 +58,7 @@ void koopa_shell_spawn_sparkles(f32 a) {
     sp1C->oPosY += a;
 }
 
+extern Vec3f marioShellFrameDisplacement;
 void bhv_koopa_shell_loop(void) {
     struct Surface *sp34;
 
@@ -65,6 +66,8 @@ void bhv_koopa_shell_loop(void) {
     cur_obj_scale(1.0f);
 
     switch (o->oAction) {
+        Mat4 transfMat;
+        Vec3f translVec;
         case 0:
             cur_obj_update_floor_and_walls();
             cur_obj_if_hit_wall_bounce_away();
@@ -101,6 +104,13 @@ void bhv_koopa_shell_loop(void) {
                 spawn_mist_particles();
                 o->oAction = 0;
             }
+            obj_copy_pos(o, gMarioObject);
+
+            vec3f_copy(translVec,marioShellFrameDisplacement);
+            mtxf_copy(o->transform,gLocalToWorldGravTransformMtx);
+            mtxf_rotate_zxy_and_translate(transfMat, translVec, o->header.gfx.angle);
+            mtxf_mul(o->transform, transfMat, o->transform);
+            o->header.gfx.throwMatrix = o->transform;
             break;
     }
 

@@ -8216,6 +8216,7 @@ BAD_RETURN(s32) cutscene_star_spawn_focus_star(struct Camera *c) {
 
     if (gCutsceneFocus != NULL) {
         object_pos_to_vec3f(starPos, gCutsceneFocus);
+	mtxf_mul_vec3f(gWorldToLocalGravTransformMtx, starPos);
         starPos[1] += gCutsceneFocus->hitboxHeight;
         approach_vec3f_asymptotic(c->focus, starPos, 0.1f, 0.1f, 0.1f);
     }
@@ -8335,22 +8336,34 @@ BAD_RETURN(s32) cutscene_red_coin_star_start(struct Camera *c) {
  * Look towards the star's x and z position
  */
 BAD_RETURN(s32) cutscene_red_coin_star_focus_xz(struct Camera *c) {
-    approach_f32_asymptotic_bool(&c->focus[0], gCutsceneFocus->oPosX, 0.15f);
-    approach_f32_asymptotic_bool(&c->focus[2], gCutsceneFocus->oPosZ, 0.15f);
+    Vec3f starPos;
+    object_pos_to_vec3f(starPos, gCutsceneFocus);
+    mtxf_mul_vec3f(gWorldToLocalGravTransformMtx, starPos);
+
+    approach_f32_asymptotic_bool(&c->focus[0], starPos[0], 0.15f);
+    approach_f32_asymptotic_bool(&c->focus[2], starPos[2], 0.15f);
 }
 
 /**
  * Look towards the star's y position. Only active before the camera warp.
  */
 BAD_RETURN(s32) cutscene_red_coin_star_focus_y(struct Camera *c) {
-    approach_f32_asymptotic_bool(&c->focus[1], gCutsceneFocus->oPosY, 0.1f);
+    Vec3f starPos;
+    object_pos_to_vec3f(starPos, gCutsceneFocus);
+    mtxf_mul_vec3f(gWorldToLocalGravTransformMtx, starPos);
+
+    approach_f32_asymptotic_bool(&c->focus[1], starPos[1], 0.1f);
 }
 
 /**
  * Look 80% up towards the star. Only active after the camera warp.
  */
 BAD_RETURN(s32) cutscene_red_coin_star_look_up_at_star(struct Camera *c) {
-    c->focus[1] = sCutsceneVars[1].point[1] + (gCutsceneFocus->oPosY - sCutsceneVars[1].point[1]) * 0.8f;
+    Vec3f starPos;
+    object_pos_to_vec3f(starPos, gCutsceneFocus);
+    mtxf_mul_vec3f(gWorldToLocalGravTransformMtx, starPos);
+
+    c->focus[1] = sCutsceneVars[1].point[1] + (starPos[1] - sCutsceneVars[1].point[1]) * 0.8f;
 }
 
 /**
@@ -8362,6 +8375,7 @@ BAD_RETURN(s32) cutscene_red_coin_star_warp(struct Camera *c) {
     struct Object *o = gCutsceneFocus;
 
     vec3f_set(sCutsceneVars[1].point, o->oHomeX, o->oHomeY, o->oHomeZ);
+    mtxf_mul_vec3f(gWorldToLocalGravTransformMtx, sCutsceneVars[1].point);
     vec3f_get_dist_and_angle(sCutsceneVars[1].point, c->pos, &dist, &pitch, &yaw);
     posYaw = calculate_yaw(sCutsceneVars[1].point, c->pos);
     yaw = calculate_yaw(sCutsceneVars[1].point, sMarioCamState->pos);
@@ -8921,6 +8935,9 @@ BAD_RETURN(s32) cutscene_dialog_start(struct Camera *c) {
 
     // Store gCutsceneFocus's position and yaw
     object_pos_to_vec3f(sCutsceneVars[9].point, gCutsceneFocus);
+    sCutsceneVars[9].point[0] -= gMarioObject->oPosX;
+    sCutsceneVars[9].point[1] -= gMarioObject->oPosY;
+    sCutsceneVars[9].point[2] -= gMarioObject->oPosZ;
     sCutsceneVars[9].point[1] += gCutsceneFocus->hitboxHeight + 200.f;
     sCutsceneVars[9].angle[1] = calculate_yaw(sCutsceneVars[8].point, sCutsceneVars[9].point);
 

@@ -4,7 +4,7 @@ void bhv_celebration_star_init(void) {
     o->oHomeX = gMarioObject->header.gfx.pos[0];
     o->oPosY = gMarioObject->header.gfx.pos[1] + 30.0f;
     o->oHomeZ = gMarioObject->header.gfx.pos[2];
-    o->oMoveAngleYaw = gMarioObject->header.gfx.angle[1] + 0x8000;
+    o->oMoveAngleYaw = gMarioState->faceAngle[1] + 0x8000;
     o->oCelebStarDiameterOfRotation = 100;
 #if BUGFIX_STAR_BOWSER_KEY
     if (gCurrLevelNum == LEVEL_BOWSER_1 || gCurrLevelNum == LEVEL_BOWSER_2) {
@@ -60,7 +60,7 @@ void celeb_star_act_face_camera(void) {
 #endif
         o->oFaceAngleYaw += 0x1000;
     } else {
-        o->oFaceAngleYaw = gMarioObject->header.gfx.angle[1];
+        o->oFaceAngleYaw = gMarioState->faceAngle[1];
     }
 
     if (o->oTimer == 59) {

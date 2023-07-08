@@ -46,7 +46,7 @@ void bobomb_check_interactions(void) {
 
     if (o->oInteractStatus & INT_STATUS_INTERACTED) {
         if (o->oInteractStatus & INT_STATUS_MARIO_KNOCKBACK_DMG) {
-            o->oMoveAngleYaw = gMarioObject->header.gfx.angle[1];
+            o->oMoveAngleYaw = gMarioState->faceAngle[1];
             o->oForwardVel = 25.0f;
             o->oVelY = 30.0f;
             o->oAction = BOBOMB_ACT_LAUNCHED;

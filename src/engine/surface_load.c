@@ -116,12 +116,12 @@ s16 max_3(s16 a0, s16 a1, s16 a2) {
     return a0;
 }
 
-u32 gCellGridX = 2;
-u32 gCellSizeX = 2500;
-u32 gCellGridY = 2;
-u32 gCellSizeY = 2500;
-u32 gCellGridZ = 30;
-u32 gCellSizeZ = 1000;
+u32 gCellGridX = 8;
+u32 gCellSizeX = 2048;
+u32 gCellGridY = 1;
+u32 gCellSizeY = 40000;
+u32 gCellGridZ = 8;
+u32 gCellSizeZ = 2048;
 
 enum CellIndexOffsets {
     CELL_OFFSET_NONE,
@@ -160,10 +160,10 @@ s16 get_cell_index(s16 pos, u16 numCells, u32 cellSize, u32 offset) {
 }
 
 // Get the one-dimensional index of the cell array from a position in 3D space.
-s16 get_cell(Vec3f pos) {
-    return cell_index_to_array(get_cell_index(pos[0], gCellGridX, gCellSizeX, CELL_OFFSET_NONE),
-                               get_cell_index(pos[1], gCellGridY, gCellSizeY, CELL_OFFSET_NONE),
-                               get_cell_index(pos[2], gCellGridZ, gCellSizeZ, CELL_OFFSET_NONE));
+s16 get_cell(s16 x, s16 y, s16 z) {
+    return cell_index_to_array(get_cell_index(x, gCellGridX, gCellSizeX, CELL_OFFSET_NONE),
+                               get_cell_index(y, gCellGridY, gCellSizeY, CELL_OFFSET_NONE),
+                               get_cell_index(z, gCellGridZ, gCellSizeZ, CELL_OFFSET_NONE));
 }
 
 // Add a surface to a specific cell.
@@ -188,6 +188,14 @@ static void add_surface(struct Surface *surface, s32 dynamic) {
     s16 minX, minY, minZ, maxX, maxY, maxZ;
     u16 minCellX, minCellY, minCellZ, maxCellX, maxCellY, maxCellZ;
     u16 cellZ, cellY, cellX;
+
+    if (dynamic) {
+        struct SurfaceNode *newNode = alloc_surface_node();
+        newNode->surface = surface;
+        newNode->next = gDynamicSurfaces.next;
+        gDynamicSurfaces.next = newNode;
+        return;
+    }
 
     minX = min_3(surface->vertex1[0], surface->vertex2[0], surface->vertex3[0]);
     minY = min_3(surface->vertex1[1], surface->vertex2[1], surface->vertex3[1]);
@@ -562,7 +570,7 @@ void clear_dynamic_and_transformed_surfaces(void) {
     gSurfacesAllocated = gNumStaticSurfaces;
     gSurfaceNodesAllocated = gNumStaticSurfaceNodes;
 
-        //gDynamicSurfaces.next = NULL;
+    gDynamicSurfaces.next = NULL;
     gStaticSurfacePartition[SPATIAL_PARTITION_FLOORS].next = NULL;
     gStaticSurfacePartition[SPATIAL_PARTITION_CEILS].next = NULL;
     gStaticSurfacePartition[SPATIAL_PARTITION_WALLS].next = NULL;
@@ -585,7 +593,7 @@ void create_transformed_surfaces(Vec3f pos) {
     Vec3f n;
     s32 i = 0;
     struct Surface *surf, *newSurf;
-    struct SurfaceNode *surfaceNode = gStaticSurfaces[get_cell(pos)].next;
+    struct SurfaceNode *surfaceNode = gStaticSurfaces[get_cell((s16)pos[0],(s16)pos[1],(s16)pos[2])].next;
     s32 listIndex;
     Vec3s marioPos;
     s32 count = 0;
@@ -608,8 +616,6 @@ void create_transformed_surfaces(Vec3f pos) {
             i = 1;
             surfaceNode = gDynamicSurfaces.next;
         }
-
-        if (vertex_out_of_box(surf->vertex1,marioPos) && vertex_out_of_box(surf->vertex2,marioPos) && vertex_out_of_box(surf->vertex3,marioPos)) continue;
 
         // Transform vertices and normals
         vec3f_copy(n,&surf->normal.x);
@@ -653,8 +659,6 @@ void create_transformed_surfaces(Vec3f pos) {
         newNode->next = list->next;
         list->next = newNode;
     }
-
-    gDynamicSurfaces.next = NULL;
 }
 
 /**
@@ -742,7 +746,7 @@ void load_object_surfaces(s16 **data, s16 *vertexData) {
 
             surface->flags |= flags;
             surface->room = (s8) room;
-            //add_surface(surface, TRUE);
+            add_surface(surface, TRUE);
         }
 
         if (hasForce) {
