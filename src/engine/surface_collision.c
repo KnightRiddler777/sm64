@@ -589,6 +589,20 @@ f32 find_water_level(f32 x, f32 z) {
     return waterLevel;
 }
 
+u32 mario_below_water_level(f32 dist) {
+    Vec3f testPoint;
+    f32 waterLevel;
+    vec3f_copy(testPoint, &gMarioObject->oPosX);
+    testPoint[0] += dist * gGravityVector[0];
+    testPoint[1] += dist * gGravityVector[1];
+    testPoint[2] += dist * gGravityVector[2];
+
+    waterLevel = find_water_level(testPoint[0], testPoint[2]);
+    if (waterLevel == -11000.f) return FALSE;
+
+    return (testPoint[1] < waterLevel);
+}
+
 /**
  * Finds the height of the poison gas (used only in HMC) at a given location.
  */

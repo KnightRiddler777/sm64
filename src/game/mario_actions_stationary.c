@@ -16,9 +16,15 @@
 #include "sound_init.h"
 #include "surface_terrains.h"
 #include "rumble_init.h"
+#include "object_list_processor.h"
+#include "engine/surface_collision.h"
 
 s32 check_common_idle_cancels(struct MarioState *m) {
     mario_drop_held_object(m);
+    if (!m->floor || m->input & INPUT_OFF_FLOOR) {
+        return set_mario_action(m, ACT_FREEFALL, 0);
+    }
+
     if (m->floor && m->floor->normal.y < 0.29237169f) {
         return mario_push_off_steep_floor(m, ACT_FREEFALL, 0);
     }
@@ -29,10 +35,6 @@ s32 check_common_idle_cancels(struct MarioState *m) {
 
     if (m->input & INPUT_A_PRESSED) {
         return set_jumping_action(m, ACT_JUMP, 0);
-    }
-
-    if (m->input & INPUT_OFF_FLOOR) {
-        return set_mario_action(m, ACT_FREEFALL, 0);
     }
 
     if (m->input & INPUT_ABOVE_SLIDE) {
@@ -60,7 +62,7 @@ s32 check_common_idle_cancels(struct MarioState *m) {
 }
 
 s32 check_common_hold_idle_cancels(struct MarioState *m) {
-    if (m->floor->normal.y < 0.29237169f) {
+    if (m->floor && m->floor->normal.y < 0.29237169f) {
         return mario_push_off_steep_floor(m, ACT_HOLD_FREEFALL, 0);
     }
 
@@ -1051,6 +1053,8 @@ s32 act_ground_pound_land(struct MarioState *m) {
     return FALSE;
 }
 
+extern s16 marioTrueFloorType;
+
 s32 act_first_person(struct MarioState *m) {
     s32 sp1C = (m->input & (INPUT_OFF_FLOOR | INPUT_ABOVE_SLIDE | INPUT_STOMPED)) != 0;
 
@@ -1065,7 +1069,7 @@ s32 act_first_person(struct MarioState *m) {
         return set_mario_action(m, ACT_IDLE, 0);
     }
 
-    if (m->floor->type == SURFACE_LOOK_UP_WARP
+    if (marioTrueFloorType == SURFACE_LOOK_UP_WARP
         && save_file_get_total_star_count(gCurrSaveFileNum - 1, COURSE_MIN - 1, COURSE_MAX - 1) >= 10) {
         s16 sp1A = m->statusForCamera->headRotation[0];
         s16 sp18 = ((m->statusForCamera->headRotation[1] * 4) / 3) + m->faceAngle[1];
@@ -1080,7 +1084,7 @@ s32 act_first_person(struct MarioState *m) {
 }
 
 s32 check_common_stationary_cancels(struct MarioState *m) {
-    if (m->pos[1] < m->waterLevel - 100) {
+    if (mario_below_water_level(100.f) && mario_below_water_level(0.f)) {
         if (m->action == ACT_SPAWN_SPIN_LANDING) {
             load_level_init_text(0);
         }

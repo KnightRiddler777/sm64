@@ -6,6 +6,7 @@
 #include "camera.h"
 #include "engine/graph_node.h"
 #include "engine/math_util.h"
+#include "engine/surface_collision.h"
 #include "game_init.h"
 #include "interaction.h"
 #include "level_update.h"
@@ -13,6 +14,7 @@
 #include "mario_step.h"
 #include "save_file.h"
 #include "rumble_init.h"
+#include "object_list_processor.h"
 
 void play_flip_sounds(struct MarioState *m, s16 frame1, s16 frame2, s16 frame3) {
     s32 animFrame = m->marioObj->header.gfx.animInfo.animFrame;
@@ -49,6 +51,9 @@ s32 lava_boost_on_wall(struct MarioState *m) {
         m->forwardVel = 24.0f;
     }
 
+    m->vel[0] = m->forwardVel * sins(m->faceAngle[1]);
+    m->vel[2] = m->forwardVel * coss(m->faceAngle[1]);
+
     if (!(m->flags & MARIO_METAL_CAP)) {
         m->hurtCounter += (m->flags & MARIO_CAP_ON_HEAD) ? 12 : 18;
     }
@@ -80,7 +85,7 @@ s32 check_fall_damage(struct MarioState *m, u32 hardFallAction) {
 
 #pragma GCC diagnostic pop
 
-    if (m->action != ACT_TWIRLING && m->floor->type != SURFACE_BURNING) {
+    if (m->action != ACT_TWIRLING && m->floor && m->floor->type != SURFACE_BURNING) {
         if (m->vel[1] < -55.0f) {
             if (fallHeight > 3000.0f) {
                 m->hurtCounter += (m->flags & MARIO_CAP_ON_HEAD) ? 16 : 24;
@@ -115,8 +120,11 @@ s32 check_kick_or_dive_in_air(struct MarioState *m) {
 s32 should_get_stuck_in_ground(struct MarioState *m) {
     u32 terrainType = m->area->terrainType & TERRAIN_MASK;
     struct Surface *floor = m->floor;
-    s32 flags = floor->flags;
-    s32 type = floor->type;
+    s32 flags, type;
+
+    if (floor == NULL) return FALSE;
+    flags = floor->flags;
+    type = floor->type;
 
     if (floor != NULL && (terrainType == TERRAIN_SNOW || terrainType == TERRAIN_SAND)
         && type != SURFACE_BURNING && SURFACE_IS_NOT_HARD(type)) {
@@ -146,37 +154,46 @@ s32 check_fall_damage_or_get_stuck(struct MarioState *m, u32 hardFallAction) {
     return check_fall_damage(m, hardFallAction);
 }
 
-s32 check_horizontal_wind(struct MarioState *m) {
-    struct Surface *floor;
+extern s16 marioTrueFloorType;
+extern s16 marioTrueFloorForce;
+
+void apply_directional_wind(struct MarioState *m, Vec3f windVelocity, f32 maxFvel, f32 maxYvel) {
     f32 speed;
+
+    m->slideVelX += windVelocity[0];
+    m->slideVelZ += windVelocity[2];
+
+    speed = sqrtf(m->slideVelX * m->slideVelX + m->slideVelZ * m->slideVelZ);
+
+    if (speed > maxFvel) {
+        speed = maxFvel;
+    }
+
+    m->vel[0] = m->slideVelX;
+    m->vel[2] = m->slideVelZ;
+
+    m->slideYaw = atan2s(m->slideVelZ, m->slideVelX);
+    m->forwardVel = speed * coss(m->faceAngle[1] - m->slideYaw);
+
+    if ((m->vel[1] += windVelocity[1]) > maxYvel) {
+        m->vel[1] = maxYvel;
+    }
+}
+
+
+s32 check_horizontal_wind(struct MarioState *m) {
     s16 pushAngle;
+    Vec3f pushAmount;
 
-    floor = m->floor;
+    if (marioTrueFloorType == SURFACE_HORIZONTAL_WIND) {
+        pushAngle = marioTrueFloorForce << 8;
 
-    if (floor && floor->type == SURFACE_HORIZONTAL_WIND) {
-        pushAngle = floor->force << 8;
+        vec3f_set(pushAmount, 1.2f * sins(pushAngle), 0.f, 1.2f * coss(pushAngle));
 
-        m->slideVelX += 1.2f * sins(pushAngle);
-        m->slideVelZ += 1.2f * coss(pushAngle);
+        mtxf_mul_vec3f(gWorldToLocalGravRotationMtx, pushAmount);
+        pushAmount[1] *= 4.f;
 
-        speed = sqrtf(m->slideVelX * m->slideVelX + m->slideVelZ * m->slideVelZ);
-
-        if (speed > 48.0f) {
-            m->slideVelX = m->slideVelX * 48.0f / speed;
-            m->slideVelZ = m->slideVelZ * 48.0f / speed;
-            speed = 32.0f; //! This was meant to be 48?
-        } else if (speed > 32.0f) {
-            speed = 32.0f;
-        }
-
-        m->vel[0] = m->slideVelX;
-        m->vel[2] = m->slideVelZ;
-        m->slideYaw = atan2s(m->slideVelZ, m->slideVelX);
-        m->forwardVel = speed * coss(m->faceAngle[1] - m->slideYaw);
-
-#ifdef VERSION_JP
-        play_sound(SOUND_ENV_WIND2, m->marioObj->header.gfx.cameraToObject);
-#endif
+        apply_directional_wind(m, pushAmount, 48.0f, 100.f);
         return TRUE;
     }
 
@@ -2040,7 +2057,7 @@ s32 act_special_triple_jump(struct MarioState *m) {
 }
 
 s32 check_common_airborne_cancels(struct MarioState *m) {
-    if (m->pos[1] < m->waterLevel - 100) {
+    if (mario_below_water_level(100.f) && mario_below_water_level(0.f)) {
         return set_water_plunge_action(m);
     }
 
@@ -2048,7 +2065,7 @@ s32 check_common_airborne_cancels(struct MarioState *m) {
         return drop_and_set_mario_action(m, ACT_SQUISHED, 0);
     }
 
-    if (m->floor && m->floor->type == SURFACE_VERTICAL_WIND && (m->action & ACT_FLAG_ALLOW_VERTICAL_WIND_ACTION)) {
+    if (marioTrueFloorType == SURFACE_VERTICAL_WIND && (m->action & ACT_FLAG_ALLOW_VERTICAL_WIND_ACTION) && gGravityVector[1] > 0.95f) {
         return drop_and_set_mario_action(m, ACT_VERTICAL_WIND, 0);
     }
 

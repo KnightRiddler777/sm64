@@ -12,6 +12,7 @@
 #include "memory.h"
 #include "behavior_data.h"
 #include "rumble_init.h"
+#include "object_list_processor.h"
 
 struct LandingAction {
     s16 numFrames;
@@ -161,12 +162,13 @@ s32 set_triple_jump_action(struct MarioState *m, UNUSED u32 action, UNUSED u32 a
 
 void update_sliding_angle(struct MarioState *m, f32 accel, f32 lossFactor) {
     s32 newFacingDYaw;
-    s16 facingDYaw;
+    s16 facingDYaw, slopeAngle;
+    f32 steepness;
 
     struct Surface *floor = m->floor;
-    s16 slopeAngle = atan2s(floor->normal.z, floor->normal.x);
-    f32 steepness = sqrtf(floor->normal.x * floor->normal.x + floor->normal.z * floor->normal.z);
-    UNUSED f32 normalY = floor->normal.y;
+    if (floor == NULL) return;
+    slopeAngle = atan2s(floor->normal.z, floor->normal.x);
+    steepness = sqrtf(floor->normal.x * floor->normal.x + floor->normal.z * floor->normal.z);
 
     m->slideVelX += accel * steepness * sins(slopeAngle);
     m->slideVelZ += accel * steepness * coss(slopeAngle);
@@ -231,6 +233,8 @@ s32 update_sliding(struct MarioState *m, f32 stopSpeed) {
     f32 forward = coss(intendedDYaw);
     f32 sideward = sins(intendedDYaw);
 
+    if (m->floor == NULL) return FALSE;
+
     //! 10k glitch
     if (forward < 0.0f && m->forwardVel >= 0.0f) {
         forward *= 0.5f + 0.5f * m->forwardVel / 100.0f;
@@ -284,13 +288,14 @@ s32 update_sliding(struct MarioState *m, f32 stopSpeed) {
 }
 
 void apply_slope_accel(struct MarioState *m) {
-    f32 slopeAccel;
+    f32 slopeAccel, steepness;
+    s16 floorDYaw;
 
     struct Surface *floor = m->floor;
-    f32 steepness = sqrtf(floor->normal.x * floor->normal.x + floor->normal.z * floor->normal.z);
+    if (floor == NULL) return;
+    steepness = sqrtf(floor->normal.x * floor->normal.x + floor->normal.z * floor->normal.z);
 
-    UNUSED f32 normalY = floor->normal.y;
-    s16 floorDYaw = m->floorAngle - m->faceAngle[1];
+    floorDYaw = m->floorAngle - m->faceAngle[1];
 
     if (mario_floor_is_slope(m)) {
         s16 slopeClass = 0;
@@ -354,13 +359,14 @@ void update_shell_speed(struct MarioState *m) {
     f32 maxTargetSpeed;
     f32 targetSpeed;
 
-    if (m->floorHeight < m->waterLevel) {
-        m->floorHeight = m->waterLevel;
+    if (m->floorHeight < (m->waterLevel - gMarioObject->oPosY)) {
+        m->floorHeight = m->waterLevel - gMarioObject->oPosY;
         m->floor = &gWaterSurfacePseudoFloor;
-        m->floor->originOffset = m->waterLevel; //! Negative origin offset
+        m->floor->originOffset = m->waterLevel - gMarioObject->oPosY; //! Negative origin offset
     }
+    if (!m->floor) return;
 
-    if (m->floor != NULL && m->floor->type == SURFACE_SLOW) {
+    if (m->floor->type == SURFACE_SLOW) {
         maxTargetSpeed = 48.0f;
     } else {
         maxTargetSpeed = 64.0f;
@@ -438,7 +444,8 @@ void update_walking_speed(struct MarioState *m) {
     f32 maxTargetSpeed;
     f32 targetSpeed;
 
-    if (m->floor != NULL && m->floor->type == SURFACE_SLOW) {
+    if (!m->floor) return;
+    if (m->floor->type == SURFACE_SLOW) {
         maxTargetSpeed = 24.0f;
     } else {
         maxTargetSpeed = 32.0f;
@@ -509,7 +516,7 @@ s32 begin_braking_action(struct MarioState *m) {
         return set_mario_action(m, ACT_STANDING_AGAINST_WALL, 0);
     }
 
-    if (m->forwardVel >= 16.0f && m->floor->normal.y >= 0.17364818f) {
+    if (m->forwardVel >= 16.0f && m->floor && m->floor->normal.y >= 0.17364818f) {
         return set_mario_action(m, ACT_BRAKING, 0);
     }
 
@@ -1233,7 +1240,7 @@ s32 act_riding_shell_ground(struct MarioState *m) {
     }
 
     tilt_body_ground_shell(m, startYaw);
-    if (m->floor->type == SURFACE_BURNING) {
+    if (m->floor && m->floor->type == SURFACE_BURNING) {
         play_sound(SOUND_MOVING_RIDING_SHELL_LAVA, m->marioObj->header.gfx.cameraToObject);
     } else {
         play_sound(SOUND_MOVING_TERRAIN_RIDING_SHELL + m->terrainSoundAddend,
@@ -1310,7 +1317,7 @@ s32 act_burning_ground(struct MarioState *m) {
         return set_mario_action(m, ACT_WALKING, 0);
     }
 
-    if (m->waterLevel - m->floorHeight > 50.0f) {
+    if (mario_below_water_level(50.f)) {
         play_sound(SOUND_GENERAL_FLAME_OUT, m->marioObj->header.gfx.cameraToObject);
         return set_mario_action(m, ACT_WALKING, 0);
     }
@@ -1763,6 +1770,10 @@ s32 common_landing_cancels(struct MarioState *m, struct LandingAction *landingAc
     //! Everything here, including floor steepness, is checked before checking
     // if Mario is actually on the floor. This leads to e.g. remote sliding.
 
+    if (!m->floor || m->input & INPUT_OFF_FLOOR) {
+        return set_mario_action(m, landingAction->offFloorAction, 0);
+    }
+
     if (m->floor->normal.y < 0.2923717f) {
         return mario_push_off_steep_floor(m, landingAction->verySteepAction, 0);
     }
@@ -1783,10 +1794,6 @@ s32 common_landing_cancels(struct MarioState *m, struct LandingAction *landingAc
 
     if (m->input & INPUT_A_PRESSED) {
         return setAPressAction(m, landingAction->aPressedAction, 0);
-    }
-
-    if (m->input & INPUT_OFF_FLOOR) {
-        return set_mario_action(m, landingAction->offFloorAction, 0);
     }
 
     return FALSE;
@@ -1954,7 +1961,7 @@ s32 act_hold_quicksand_jump_land(struct MarioState *m) {
 }
 
 s32 check_common_moving_cancels(struct MarioState *m) {
-    if (m->pos[1] < m->waterLevel - 100) {
+    if (mario_below_water_level(100.f) && mario_below_water_level(0.f)) {
         return set_water_plunge_action(m);
     }
 

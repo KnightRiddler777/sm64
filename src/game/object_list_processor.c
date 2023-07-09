@@ -438,7 +438,7 @@ void bhv_mario_update(void) {
     }
 
     // Rotate angle and pos into world coordinates for use next frame
-    vec3f_set(marioVelGrav,gMarioState->vel[0], gMarioState->vel[1], gMarioState->vel[2]);
+    vec3f_copy(marioVelGrav,gMarioState->vel);
     vec3f_set(marioAngGrav,sins(gMarioState->faceAngle[1]), 0, coss(gMarioState->faceAngle[1]));
     mtxf_mul_vec3f(gLocalToWorldGravRotationMtx, marioVelGrav);
     mtxf_mul_vec3f(gLocalToWorldGravRotationMtx, marioAngGrav);

@@ -16,6 +16,7 @@
 #include "camera.h"
 #include "level_table.h"
 #include "rumble_init.h"
+#include "object_list_processor.h"
 
 #define POLE_NONE          0
 #define POLE_TOUCHED_FLOOR 1
@@ -545,7 +546,7 @@ s32 act_ledge_grab(struct MarioState *m) {
         m->actionTimer++;
     }
 
-    if (m->floor->normal.y < 0.9063078f) {
+    if (!m->floor || m->floor->normal.y < 0.9063078f) {
         return let_go_of_ledge(m);
     }
 
@@ -682,9 +683,9 @@ s32 act_in_cannon(struct MarioState *m) {
 
             vec3f_set(m->vel, 0.0f, 0.0f, 0.0f);
 
-            m->pos[0] = m->usedObj->oPosX;
-            m->pos[1] = m->usedObj->oPosY + 350.0f;
-            m->pos[2] = m->usedObj->oPosZ;
+            m->pos[0] = m->usedObj->oPosX - gMarioObject->oPosX;
+            m->pos[1] = m->usedObj->oPosY - gMarioObject->oPosY + 350.0f;
+            m->pos[2] = m->usedObj->oPosZ - gMarioObject->oPosZ;
 
             m->forwardVel = 0.0f;
 
@@ -837,7 +838,7 @@ s32 act_tornado_twirling(struct MarioState *m) {
 }
 
 s32 check_common_automatic_cancels(struct MarioState *m) {
-    if (m->pos[1] < m->waterLevel - 100) {
+    if (mario_below_water_level(100.f) && mario_below_water_level(0.f)) {
         return set_water_plunge_action(m);
     }
 

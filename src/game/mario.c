@@ -421,6 +421,8 @@ s32 mario_get_floor_class(struct MarioState *m) {
                 floorClass = SURFACE_CLASS_VERY_SLIPPERY;
                 break;
         }
+    } else {
+        return floorClass;
     }
 
     // Crawling allows Mario to not slide on certain steeper surfaces.
@@ -465,7 +467,7 @@ u32 mario_get_terrain_sound_addend(struct MarioState *m) {
     if (m->floor != NULL) {
         floorType = m->floor->type;
 
-        if ((gCurrLevelNum != LEVEL_LLL) && (m->floorHeight < (m->waterLevel - 10))) {
+        if ((gCurrLevelNum != LEVEL_LLL) && mario_below_water_level(10.f)) {
             // Water terrain sound, excluding LLL since it uses water in the volcano.
             ret = SOUND_TERRAIN_WATER << 16;
         } else if (SURFACE_IS_QUICKSAND(floorType)) {
@@ -572,7 +574,7 @@ s32 mario_facing_downhill(struct MarioState *m, s32 turnYaw) {
  */
 u32 mario_floor_is_slippery(struct MarioState *m) {
     f32 normY;
-
+    if (!m->floor) return FALSE;
     if ((m->area->terrainType & TERRAIN_MASK) == TERRAIN_SLIDE
         && m->floor->normal.y < 0.9998477f //~cos(1 deg)
     ) {
@@ -605,7 +607,7 @@ u32 mario_floor_is_slippery(struct MarioState *m) {
  */
 s32 mario_floor_is_slope(struct MarioState *m) {
     f32 normY;
-
+    if (!m->floor) return FALSE;
     if ((m->area->terrainType & TERRAIN_MASK) == TERRAIN_SLIDE
         && m->floor->normal.y < 0.9998477f) { // ~cos(1 deg)
         return TRUE;
@@ -1176,8 +1178,6 @@ s32 set_water_plunge_action(struct MarioState *m) {
     m->forwardVel = m->forwardVel / 4.0f;
     m->vel[1] = m->vel[1] / 2.0f;
 
-    m->pos[1] = m->waterLevel - 100;
-
     m->faceAngle[2] = 0;
 
     vec3s_set(m->angleVel, 0, 0, 0);
@@ -1315,21 +1315,28 @@ void update_mario_joystick_inputs(struct MarioState *m) {
 void update_mario_geometry_inputs(struct MarioState *m) {
     f32 gasLevel;
     f32 ceilToFloorDist;
+    f32 distFromOrigin;
+    Vec3f poisonGasTest;
 
     f32_find_wall_collision(&m->pos[0], &m->pos[1], &m->pos[2], 60.0f, 50.0f);
     f32_find_wall_collision(&m->pos[0], &m->pos[1], &m->pos[2], 30.0f, 24.0f);
 
     m->floorHeight = find_floor(m->pos[0], m->pos[1], m->pos[2], &m->floor);
 
+    if (m->floor == NULL && m->vel[1] < 0.f) {
+        distFromOrigin = sqrtf(gMarioObject->oPosX*gMarioObject->oPosX + gMarioObject->oPosY*gMarioObject->oPosY + gMarioObject->oPosZ*gMarioObject->oPosZ);
+        m->floor = &gDeathPlanePseudoFloor;
+        m->floorHeight = distFromOrigin - 15000.f;
+    }
+
     m->ceilHeight = vec3f_find_ceil(&m->pos[0], m->floorHeight, &m->ceil);
-    gasLevel = find_poison_gas_level(m->pos[0], m->pos[2]);
-    m->waterLevel = find_water_level(m->pos[0], m->pos[2]);
+    m->waterLevel = find_water_level(gMarioObject->oPosX, gMarioObject->oPosZ);
 
     if (m->floor != NULL) {
         m->floorAngle = atan2s(m->floor->normal.z, m->floor->normal.x);
         m->terrainSoundAddend = mario_get_terrain_sound_addend(m);
 
-        if ((m->pos[1] > m->waterLevel - 40) && mario_floor_is_slippery(m)) {
+        if (!mario_below_water_level(40.f) && mario_floor_is_slippery(m)) {
             m->input |= INPUT_ABOVE_SLIDE;
         }
 
@@ -1346,16 +1353,17 @@ void update_mario_geometry_inputs(struct MarioState *m) {
             m->input |= INPUT_OFF_FLOOR;
         }
 
-        if (m->pos[1] < (m->waterLevel - 10)) {
+        if (mario_below_water_level(10.f)) {
             m->input |= INPUT_IN_WATER;
         }
-
-        if (m->pos[1] < (gasLevel - 100.0f)) {
-            m->input |= INPUT_IN_POISON_GAS;
-        }
-
     } else {
         m->input |= INPUT_OFF_FLOOR;
+    }
+    vec3f_set(poisonGasTest,0,100,0);
+    mtxf_mul_vec3f(gLocalToWorldGravTransformMtx,poisonGasTest);
+    gasLevel = find_poison_gas_level(poisonGasTest[0], poisonGasTest[2]);
+    if (poisonGasTest[1] < gasLevel) {
+        m->input |= INPUT_IN_POISON_GAS;
     }
 }
 
@@ -1409,11 +1417,9 @@ void update_mario_inputs(struct MarioState *m) {
  * Set's the camera preset for submerged action behaviors.
  */
 void set_submerged_cam_preset_and_spawn_bubbles(struct MarioState *m) {
-    f32 heightBelowWater;
     s16 camPreset;
 
     if ((m->action & ACT_GROUP_MASK) == ACT_GROUP_SUBMERGED) {
-        heightBelowWater = (f32)(m->waterLevel - 80) - m->pos[1];
         camPreset = m->area->camera->mode;
 
         if (m->action & ACT_FLAG_METAL_WATER) {
@@ -1421,18 +1427,18 @@ void set_submerged_cam_preset_and_spawn_bubbles(struct MarioState *m) {
                 set_camera_mode(m->area->camera, CAMERA_MODE_CLOSE, 1);
             }
         } else {
-            if ((heightBelowWater > 800.0f) && (camPreset != CAMERA_MODE_BEHIND_MARIO)) {
+            if (mario_below_water_level(880.f) && mario_below_water_level(0.f) && (camPreset != CAMERA_MODE_BEHIND_MARIO)) {
                 set_camera_mode(m->area->camera, CAMERA_MODE_BEHIND_MARIO, 1);
             }
 
-            if ((heightBelowWater < 400.0f) && (camPreset != CAMERA_MODE_WATER_SURFACE)) {
+            if (!mario_below_water_level(480.f) && mario_below_water_level(0.f) && (camPreset != CAMERA_MODE_WATER_SURFACE)) {
                 set_camera_mode(m->area->camera, CAMERA_MODE_WATER_SURFACE, 1);
             }
 
             // As long as Mario isn't drowning or at the top
             // of the water with his head out, spawn bubbles.
             if (!(m->action & ACT_FLAG_INTANGIBLE)) {
-                if ((m->pos[1] < (f32)(m->waterLevel - 160)) || (m->faceAngle[0] < -0x800)) {
+                if (mario_below_water_level(160.f) || (m->faceAngle[0] < -0x800)) {
                     m->particleFlags |= PARTICLE_BUBBLE;
                 }
             }
@@ -1460,7 +1466,7 @@ void update_mario_health(struct MarioState *m) {
                     // When Mario is near the water surface, recover health (unless in snow),
                     // when in snow terrains lose 3 health.
                     // If using the debug level select, do not lose any HP to water.
-                    if ((m->pos[1] >= (m->waterLevel - 140)) && !terrainIsSnow) {
+                    if (!mario_below_water_level(140.f) && !terrainIsSnow) {
                         m->health += 0x1A;
                     } else if (!gDebugLevelSelect) {
                         m->health -= (terrainIsSnow ? 3 : 1);
@@ -1643,7 +1649,7 @@ void mario_update_hitbox_and_cap_model(struct MarioState *m) {
     } else {
         m->marioObj->hitboxHeight = 160.0f;
     }
-    m->marioObj->hitboxDownOffset = 160.f;
+    m->marioObj->hitboxDownOffset = 160.f * ((1-gGravityVector[1])/2.f);
 
     if ((m->flags & MARIO_TELEPORTING) && (m->fadeWarpOpacity != 0xFF)) {
         bodyState->modelState &= ~0xFF;
@@ -1685,6 +1691,9 @@ void func_sh_8025574C(void) {
     }
 }
 #endif
+
+extern s16 marioTrueFloorType;
+extern s16 marioTrueFloorForce;
 
 /**
  * Main function for executing Mario's behavior.
@@ -1734,7 +1743,6 @@ s32 execute_mario_action(UNUSED struct Object *o) {
             }
         }
 
-        sink_mario_in_quicksand(gMarioState);
         squish_mario_model(gMarioState);
         set_submerged_cam_preset_and_spawn_bubbles(gMarioState);
         update_mario_health(gMarioState);
@@ -1743,14 +1751,14 @@ s32 execute_mario_action(UNUSED struct Object *o) {
 
         // Both of the wind handling portions play wind audio only in
         // non-Japanese releases.
-        if (gMarioState->floor && gMarioState->floor->type == SURFACE_HORIZONTAL_WIND) {
-            spawn_wind_particles(0, (gMarioState->floor->force << 8));
+        if (marioTrueFloorType == SURFACE_HORIZONTAL_WIND) {
+            spawn_wind_particles(0, (marioTrueFloorForce << 8));
 #ifndef VERSION_JP
             play_sound(SOUND_ENV_WIND2, gMarioState->marioObj->header.gfx.cameraToObject);
 #endif
         }
 
-        if (gMarioState->floor && gMarioState->floor->type == SURFACE_VERTICAL_WIND) {
+        if (marioTrueFloorType == SURFACE_VERTICAL_WIND) {
             spawn_wind_particles(1, 0);
 #ifndef VERSION_JP
             play_sound(SOUND_ENV_WIND2, gMarioState->marioObj->header.gfx.cameraToObject);
@@ -1772,6 +1780,9 @@ s32 execute_mario_action(UNUSED struct Object *o) {
 /**************************************************
  *                  INITIALIZATION                *
  **************************************************/
+
+extern Vec3f marioVelGrav;
+extern Vec3f marioAngGrav;
 
 void init_mario(void) {
     Vec3s capPos;
@@ -1816,6 +1827,8 @@ void init_mario(void) {
     vec3s_set(gMarioState->angleVel, 0, 0, 0);
     vec3s_to_vec3f(gMarioState->pos, gMarioSpawnInfo->startPos);
     vec3f_set(gMarioState->vel, 0, 0, 0);
+    vec3f_set(marioVelGrav, 0, 0, 0);
+    vec3f_set(marioAngGrav, sins(gMarioSpawnInfo->startAngle[1]), 0, coss(gMarioSpawnInfo->startAngle[1]));
     vec3f_set(gGravityVector, 0, 1, 0);
     gMarioState->floorHeight =
         find_floor(gMarioState->pos[0], gMarioState->pos[1], gMarioState->pos[2], &gMarioState->floor);

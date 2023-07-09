@@ -309,6 +309,7 @@ void set_mario_initial_cap_powerup(struct MarioState *m) {
     }
 }
 
+extern Vec3f marioVelGrav;
 void set_mario_initial_action(struct MarioState *m, u32 spawnType, u32 actionArg) {
     switch (spawnType) {
         case MARIO_SPAWN_DOOR_WARP:
@@ -367,6 +368,7 @@ void set_mario_initial_action(struct MarioState *m, u32 spawnType, u32 actionArg
             break;
     }
 
+    vec3f_copy(marioVelGrav,gMarioState->vel);
     set_mario_initial_cap_powerup(m);
 }
 
@@ -533,6 +535,8 @@ void warp_credits(void) {
     }
 }
 
+extern s16 marioTrueFloorType;
+
 void check_instant_warp(void) {
     s16 cameraAngle;
     struct Surface *floor;
@@ -549,20 +553,20 @@ void check_instant_warp(void) {
             struct InstantWarp *warp = &gCurrentArea->instantWarps[index];
 
             if (warp->id != 0) {
-                gMarioState->pos[0] += warp->displacement[0];
-                gMarioState->pos[1] += warp->displacement[1];
-                gMarioState->pos[2] += warp->displacement[2];
+                Vec3s newDisplacement;
+                vec3s_copy(newDisplacement, warp->displacement);
+                mtxf_mul_vec3s(gWorldToLocalGravRotationMtx, newDisplacement);
 
-                gMarioState->marioObj->oPosX = gMarioState->pos[0];
-                gMarioState->marioObj->oPosY = gMarioState->pos[1];
-                gMarioState->marioObj->oPosZ = gMarioState->pos[2];
+                gMarioState->pos[0] = gMarioObject->oPosX + newDisplacement[0];
+                gMarioState->pos[1] = gMarioObject->oPosY + newDisplacement[1];
+                gMarioState->pos[2] = gMarioObject->oPosZ + newDisplacement[2];
 
                 cameraAngle = gMarioState->area->camera->yaw;
 
                 change_area(warp->area);
                 gMarioState->area = gCurrentArea;
 
-                warp_camera(warp->displacement[0], warp->displacement[1], warp->displacement[2]);
+                gUpdateCamera = FALSE;
 
                 gMarioState->area->camera->yaw = cameraAngle;
             }
@@ -646,7 +650,7 @@ void initiate_warp(s16 destLevel, s16 destArea, s16 destWarpNode, s32 arg3) {
  */
 struct WarpNode *get_painting_warp_node(void) {
     struct WarpNode *warpNode = NULL;
-    s32 paintingIndex = gMarioState->floor->type - SURFACE_PAINTING_WARP_D3;
+    s32 paintingIndex = marioTrueFloorType - SURFACE_PAINTING_WARP_D3;
 
     if (paintingIndex >= PAINTING_WARP_INDEX_START && paintingIndex < PAINTING_WARP_INDEX_END) {
         if (paintingIndex < PAINTING_WARP_INDEX_FA
@@ -662,7 +666,7 @@ struct WarpNode *get_painting_warp_node(void) {
  * Check is Mario has entered a painting, and if so, initiate a warp.
  */
 void initiate_painting_warp(void) {
-    if (gCurrentArea->paintingWarpNodes != NULL && gMarioState->floor != NULL) {
+    if (gCurrentArea->paintingWarpNodes != NULL) {
         struct WarpNode warpNode;
         struct WarpNode *pWarpNode = get_painting_warp_node();
 

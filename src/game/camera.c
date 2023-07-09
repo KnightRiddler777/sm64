@@ -672,7 +672,7 @@ BAD_RETURN(f32) calc_y_to_curr_floor(f32 *posOff, f32 posMul, f32 posBound, f32 
 
     if (!(sMarioCamState->action & ACT_FLAG_METAL_WATER)) {
         //! @bug this should use sMarioGeometry.waterHeight
-        if (floorHeight < (waterHeight = find_water_level(sMarioCamState->pos[0], sMarioCamState->pos[2]))) {
+        if (floorHeight < (waterHeight = find_water_level(sMarioCamState->pos[0], sMarioCamState->pos[2]) - gMarioObject->oPosY)) {
             floorHeight = waterHeight;
         }
     }
@@ -1917,13 +1917,13 @@ s32 mode_behind_mario(struct Camera *c) {
     // Keep the camera above the water surface if swimming
     if (c->mode == CAMERA_MODE_WATER_SURFACE) {
         floorHeight = find_floor(c->pos[0], c->pos[1], c->pos[2], &floor);
-        newPos[1] = marioState->waterLevel + 120;
+        newPos[1] = marioState->waterLevel + 120 - gMarioObject->oPosY;
         if (newPos[1] < (floorHeight += 120.f)) {
             newPos[1] = floorHeight;
         }
     }
     approach_camera_height(c, newPos[1], 50.f);
-    waterHeight = find_water_level(c->pos[0], c->pos[2]) + 100.f;
+    waterHeight = find_water_level(c->pos[0] + gMarioObject->oPosX, c->pos[2] + gMarioObject->oPosZ) + 100.f - gMarioObject->oPosY;
     if (c->pos[1] <= waterHeight) {
         gCameraMovementFlags |= CAM_MOVE_SUBMERGED;
     } else {
@@ -2270,9 +2270,10 @@ s16 update_default_camera(struct Camera *c) {
     }
 
     // If there's water below the camera, decide whether to keep the camera above the water surface
-    waterHeight = find_water_level(cPos[0], cPos[2]);
+    waterHeight = find_water_level(cPos[0] + gMarioObject->oPosX, cPos[2] + gMarioObject->oPosZ);
     if (waterHeight != FLOOR_LOWER_LIMIT) {
         waterHeight += 125.f;
+	waterHeight -= gMarioObject->oPosY;
         distFromWater = waterHeight - marioFloorHeight;
         if (!(gCameraMovementFlags & CAM_MOVE_METAL_BELOW_WATER)) {
             if (distFromWater > 800.f && (sMarioCamState->action & ACT_FLAG_METAL_WATER)) {
@@ -2320,7 +2321,7 @@ s16 update_default_camera(struct Camera *c) {
     }
 
     // Make Lakitu fly above the gas
-    gasHeight = find_poison_gas_level(cPos[0], cPos[2]);
+    gasHeight = find_poison_gas_level(cPos[0] + gMarioObject->oPosX, cPos[2] + gMarioObject->oPosZ) - gMarioObject->oPosY;
     if (gasHeight != FLOOR_LOWER_LIMIT) {
         if ((gasHeight += 130.f) > c->pos[1]) {
             c->pos[1] = gasHeight;
@@ -5617,10 +5618,6 @@ void check_blocking_area_processing(const u8 *mode) {
         sStatusFlags |= CAM_FLAG_BLOCK_AREA_PROCESSING;
     }
 
-    if (gCurrLevelNum == LEVEL_DDD || gCurrLevelNum == LEVEL_WDW || gCurrLevelNum == LEVEL_COTMC) {
-        sStatusFlags &= ~CAM_FLAG_BLOCK_AREA_PROCESSING;
-    }
-
     if ((*mode == CAMERA_MODE_BEHIND_MARIO &&
             !(sMarioCamState->action & (ACT_FLAG_SWIMMING | ACT_FLAG_METAL_WATER))) ||
          *mode == CAMERA_MODE_INSIDE_CANNON) {
@@ -6652,23 +6649,6 @@ s16 camera_course_processing(struct Camera *c) {
                 //! @bug this does nothing
                 gLakituState.defMode = CAMERA_MODE_OUTWARD_RADIAL;
                 break;
-
-            case AREA_DDD_SUB:
-                if ((c->mode != CAMERA_MODE_BEHIND_MARIO)
-                    && (c->mode != CAMERA_MODE_WATER_SURFACE)) {
-                    if (((sMarioCamState->action & ACT_FLAG_ON_POLE) != 0)
-                        || (sMarioGeometry.currFloorHeight > 800.f)) {
-                        transition_to_camera_mode(c, CAMERA_MODE_8_DIRECTIONS, 60);
-
-                    } else {
-                        if (sMarioCamState->pos[1] < 800.f) {
-                            transition_to_camera_mode(c, CAMERA_MODE_FREE_ROAM, 60);
-                        }
-                    }
-                }
-                //! @bug this does nothing
-                gLakituState.defMode = CAMERA_MODE_FREE_ROAM;
-                break;
         }
     }
 
@@ -6852,7 +6832,7 @@ void find_mario_floor_and_ceil(struct PlayerGeometry *pg) {
     pg->currCeilHeight = find_ceil(sMarioCamState->pos[0],
                                    sMarioCamState->pos[1] - 10.f,
                                    sMarioCamState->pos[2], &pg->currCeil);
-    pg->waterHeight = find_water_level(sMarioCamState->pos[0], sMarioCamState->pos[2]);
+    pg->waterHeight = find_water_level(sMarioCamState->pos[0], sMarioCamState->pos[2]) - gMarioObject->oPosY;
     gCheckingSurfaceCollisionsForCamera = tempCheckingSurfaceCollisionsForCamera;
 }
 
@@ -8708,7 +8688,7 @@ BAD_RETURN(s32) cutscene_suffocation_stay_above_gas(struct Camera *c) {
     UNUSED u8 filler2[4];
 
     cutscene_goto_cvar_pos(c, 400.f, 0x2800, 0x200, 0);
-    gasLevel = find_poison_gas_level(sMarioCamState->pos[0], sMarioCamState->pos[2]);
+    gasLevel = find_poison_gas_level(sMarioCamState->pos[0], sMarioCamState->pos[2]) - gMarioObject->oPosY;
 
     if (gasLevel != FLOOR_LOWER_LIMIT) {
         if ((gasLevel += 130.f) > c->pos[1]) {

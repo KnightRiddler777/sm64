@@ -8,11 +8,17 @@
 #include "game_init.h"
 #include "interaction.h"
 #include "mario_step.h"
+#include "object_list_processor.h"
 
 static s16 sMovingSandSpeeds[] = { 12, 8, 4, 0 };
 
 struct Surface gWaterSurfacePseudoFloor = {
     SURFACE_VERY_SLIPPERY, 0, 0, 0, { 0, 0, 0 }, { 0, 0, 0 }, { 0, 0, 0 },
+    { 0.0f, 1.0f, 0.0f },  0.0f, NULL, NULL,
+};
+
+struct Surface gDeathPlanePseudoFloor = {
+    SURFACE_DEATH_PLANE, 0, 0, 0, { 0, 0, 0 }, { 0, 0, 0 }, { 0, 0, 0 },
     { 0.0f, 1.0f, 0.0f },  0.0f, NULL, NULL,
 };
 
@@ -171,15 +177,20 @@ u32 mario_push_off_steep_floor(struct MarioState *m, u32 action, u32 actionArg) 
 
 u32 mario_update_moving_sand(struct MarioState *m) {
     struct Surface *floor = m->floor;
-    s32 floorType = floor->type;
+    s32 floorType;
+    Vec3f displacement;
+    if (floor == NULL) return 0;
+    floorType = floor->type;
 
     if (floorType == SURFACE_DEEP_MOVING_QUICKSAND || floorType == SURFACE_SHALLOW_MOVING_QUICKSAND
         || floorType == SURFACE_MOVING_QUICKSAND || floorType == SURFACE_INSTANT_MOVING_QUICKSAND) {
         s16 pushAngle = floor->force << 8;
         f32 pushSpeed = sMovingSandSpeeds[floor->force >> 8];
 
-        m->vel[0] += pushSpeed * sins(pushAngle);
-        m->vel[2] += pushSpeed * coss(pushAngle);
+        vec3f_set(displacement, pushSpeed * sins(pushAngle), 0.f, pushSpeed * coss(pushAngle));
+        mtxf_mul_vec3f(gWorldToLocalGravRotationMtx, displacement);
+        m->pos[0] += displacement[0];
+        m->pos[2] += displacement[2];
 
         return TRUE;
     }
@@ -187,33 +198,33 @@ u32 mario_update_moving_sand(struct MarioState *m) {
     return FALSE;
 }
 
+extern s16 marioTrueFloorType;
+extern s16 marioTrueFloorForce;
+
 u32 mario_update_windy_ground(struct MarioState *m) {
-    struct Surface *floor = m->floor;
+    Vec3f windDisplacement;
+    f32 pushSpeed = 20.f;
+    if (marioTrueFloorType == SURFACE_HORIZONTAL_WIND) {
+        s16 pushAngle = marioTrueFloorForce << 8;
 
-    if (floor->type == SURFACE_HORIZONTAL_WIND) {
-        f32 pushSpeed;
-        s16 pushAngle = floor->force << 8;
+        vec3f_set(windDisplacement, pushSpeed * sins(pushAngle), 0, pushSpeed * coss(pushAngle));
 
-        if (m->action & ACT_FLAG_MOVING) {
-            s16 pushDYaw = m->faceAngle[1] - pushAngle;
+        mtxf_mul_vec3f(gWorldToLocalGravRotationMtx, windDisplacement);
 
-            pushSpeed = m->forwardVel > 0.0f ? -m->forwardVel * 0.5f : -8.0f;
+        m->pos[0] += windDisplacement[0];
+        m->pos[2] += windDisplacement[2];
 
-            if (pushDYaw > -0x4000 && pushDYaw < 0x4000) {
-                pushSpeed *= -1.0f;
-            }
+        return 1;
+    }
 
-            pushSpeed *= coss(pushDYaw);
-        } else {
-            pushSpeed = 3.2f + (gGlobalTimer % 4);
-        }
+    if (marioTrueFloorType == SURFACE_VERTICAL_WIND) {
+        vec3f_set(windDisplacement, 0, pushSpeed, 0);
 
-        m->vel[0] += pushSpeed * sins(pushAngle);
-        m->vel[2] += pushSpeed * coss(pushAngle);
+        mtxf_mul_vec3f(gWorldToLocalGravRotationMtx, windDisplacement);
 
-#ifdef VERSION_JP
-        play_sound(SOUND_ENV_WIND2, m->marioObj->header.gfx.cameraToObject);
-#endif
+        m->pos[0] += windDisplacement[0];
+        m->pos[2] += windDisplacement[2];
+
         return TRUE;
     }
 
@@ -227,7 +238,7 @@ void stop_and_set_height_to_floor(struct MarioState *m) {
     m->vel[1] = 0.0f;
 
     //! This is responsible for some downwarps.
-    m->pos[1] = m->floorHeight;
+    if (m->floorHeight > -11000.f) m->pos[1] = m->floorHeight;
 
     vec3f_copy(marioObj->header.gfx.pos, m->pos);
     vec3s_set(marioObj->header.gfx.angle, 0, m->faceAngle[1], 0);
@@ -270,22 +281,22 @@ static s32 perform_ground_quarter_step(struct MarioState *m, Vec3f nextPos) {
     floorHeight = find_floor(nextPos[0], nextPos[1], nextPos[2], &floor);
     ceilHeight = vec3f_find_ceil(nextPos, floorHeight, &ceil);
 
-    waterLevel = find_water_level(nextPos[0], nextPos[2]);
+    waterLevel = find_water_level(nextPos[0] + gMarioObject->oPosX, nextPos[2] + gMarioObject->oPosZ);
 
     m->wall = upperWall;
 
     if (floor == NULL) {
-        return GROUND_STEP_HIT_WALL_STOP_QSTEPS;
+        return GROUND_STEP_LEFT_GROUND;
     }
 
-    if ((m->action & ACT_FLAG_RIDING_SHELL) && floorHeight < waterLevel) {
-        floorHeight = waterLevel;
+    if ((m->action & ACT_FLAG_RIDING_SHELL) && floorHeight < waterLevel - gMarioObject->oPosY) {
+        floorHeight = waterLevel - gMarioObject->oPosY;
         floor = &gWaterSurfacePseudoFloor;
         floor->originOffset = floorHeight; //! Wrong origin offset (no effect)
     }
 
     if (nextPos[1] > floorHeight + 100.0f) {
-        if (nextPos[1] + 160.0f >= ceilHeight) {
+        if (nextPos[1] + 150.0f >= ceilHeight) {
             return GROUND_STEP_HIT_WALL_STOP_QSTEPS;
         }
 
@@ -295,7 +306,7 @@ static s32 perform_ground_quarter_step(struct MarioState *m, Vec3f nextPos) {
         return GROUND_STEP_LEFT_GROUND;
     }
 
-    if (floorHeight + 160.0f >= ceilHeight) {
+    if (floorHeight + 150.0f >= ceilHeight) {
         return GROUND_STEP_HIT_WALL_STOP_QSTEPS;
     }
 
@@ -325,6 +336,10 @@ s32 perform_ground_step(struct MarioState *m) {
     Vec3f intendedPos;
 
     for (i = 0; i < 4; i++) {
+        if (!m->floor) {
+            stepResult = GROUND_STEP_LEFT_GROUND;
+            break;
+        }
         intendedPos[0] = m->pos[0] + m->floor->normal.y * (m->vel[0] / 4.0f);
         intendedPos[2] = m->pos[2] + m->floor->normal.y * (m->vel[2] / 4.0f);
         intendedPos[1] = m->pos[1];
@@ -370,7 +385,7 @@ u32 check_ledge_grab(struct MarioState *m, struct Surface *wall, Vec3f intendedP
     ledgePos[2] = nextPos[2] - wall->normal.z * 60.0f;
     ledgePos[1] = find_floor(ledgePos[0], nextPos[1] + 160.0f, ledgePos[2], &ledgeFloor);
 
-    if (ledgePos[1] - nextPos[1] <= 100.0f) {
+    if (ledgePos[1] - nextPos[1] <= 100.0f || !ledgeFloor) {
         return FALSE;
     }
 
@@ -395,6 +410,7 @@ s32 perform_air_quarter_step(struct MarioState *m, Vec3f intendedPos, u32 stepAr
     f32 ceilHeight;
     f32 floorHeight;
     f32 waterLevel;
+    f32 distFromOrigin;
 
     vec3f_copy(nextPos, intendedPos);
 
@@ -402,9 +418,16 @@ s32 perform_air_quarter_step(struct MarioState *m, Vec3f intendedPos, u32 stepAr
     lowerWall = resolve_and_return_wall_collisions(nextPos, 30.0f, 50.0f);
 
     floorHeight = find_floor(nextPos[0], nextPos[1], nextPos[2], &floor);
+
+    if (floor == NULL && m->vel[1] < 0.f) {
+        distFromOrigin = sqrtf(gMarioObject->oPosX*gMarioObject->oPosX + gMarioObject->oPosY*gMarioObject->oPosY + gMarioObject->oPosZ*gMarioObject->oPosZ);
+        floor = &gDeathPlanePseudoFloor;
+        floorHeight = distFromOrigin - 15000.f;
+    }
+
     ceilHeight = vec3f_find_ceil(nextPos, floorHeight, &ceil);
 
-    waterLevel = find_water_level(nextPos[0], nextPos[2]);
+    waterLevel = find_water_level(nextPos[0] + gMarioObject->oPosX, nextPos[2] + gMarioObject->oPosZ);
 
     m->wall = NULL;
 
@@ -421,15 +444,15 @@ s32 perform_air_quarter_step(struct MarioState *m, Vec3f intendedPos, u32 stepAr
         return AIR_STEP_HIT_WALL;
     }
 
-    if ((m->action & ACT_FLAG_RIDING_SHELL) && floorHeight < waterLevel) {
-        floorHeight = waterLevel;
+    if ((m->action & ACT_FLAG_RIDING_SHELL) && floorHeight < waterLevel - gMarioObject->oPosY) {
+        floorHeight = waterLevel - gMarioObject->oPosY;
         floor = &gWaterSurfacePseudoFloor;
         floor->originOffset = floorHeight; //! Incorrect origin offset (no effect)
     }
 
     //! This check uses f32, but findFloor uses short (overflow jumps)
     if (nextPos[1] <= floorHeight) {
-        if (ceilHeight - floorHeight > 160.0f) {
+        if (ceilHeight - floorHeight > 150.0f) {
             m->pos[0] = nextPos[0];
             m->pos[2] = nextPos[2];
             m->floor = floor;
@@ -443,7 +466,7 @@ s32 perform_air_quarter_step(struct MarioState *m, Vec3f intendedPos, u32 stepAr
         return AIR_STEP_LANDED;
     }
 
-    if (nextPos[1] + 160.0f > ceilHeight) {
+    if (nextPos[1] + 150.0f > ceilHeight) {
         if (m->vel[1] >= 0.0f) {
             m->vel[1] = 0.0f;
 
@@ -580,29 +603,29 @@ void apply_gravity(struct MarioState *m) {
     }
 }
 
+extern s16 marioTrueFloorType;
+void apply_directional_wind(struct MarioState *m, Vec3f windVelocity, f32 maxFvel, f32 maxYvel);
+
 void apply_vertical_wind(struct MarioState *m) {
     f32 maxVelY;
     f32 offsetY;
+    Vec3f displacement;
 
     if (m->action != ACT_GROUND_POUND) {
-        offsetY = m->pos[1] - -1500.0f;
+        offsetY = gMarioObject->oPosY - -1500.0f;
 
-        if (m->floor->type == SURFACE_VERTICAL_WIND && -3000.0f < offsetY && offsetY < 2000.0f) {
+        if (marioTrueFloorType == SURFACE_VERTICAL_WIND && -3000.0f < offsetY && offsetY < 2000.0f) {
             if (offsetY >= 0.0f) {
                 maxVelY = 10000.0f / (offsetY + 200.0f);
             } else {
                 maxVelY = 50.0f;
             }
 
-            if (m->vel[1] < maxVelY) {
-                if ((m->vel[1] += maxVelY / 8.0f) > maxVelY) {
-                    m->vel[1] = maxVelY;
-                }
-            }
+            vec3f_set(displacement, 0, maxVelY / 8.0f, 0);
 
-#ifdef VERSION_JP
-            play_sound(SOUND_ENV_WIND2, m->marioObj->header.gfx.cameraToObject);
-#endif
+            mtxf_mul_vec3f(gWorldToLocalGravRotationMtx, displacement);
+
+            apply_directional_wind(m, displacement, 48.0f, maxVelY);
         }
     }
 }
@@ -621,10 +644,6 @@ s32 perform_air_step(struct MarioState *m, u32 stepArg) {
         intendedPos[2] = m->pos[2] + m->vel[2] / 4.0f;
 
         quarterStepResult = perform_air_quarter_step(m, intendedPos, stepArg);
-
-        //! On one qf, hit OOB/ceil/wall to store the 2 return value, and continue
-        // getting 0s until your last qf. Graze a wall on your last qf, and it will
-        // return the stored 2 with a sharply angled reference wall. (some gwks)
 
         if (quarterStepResult != AIR_STEP_NONE) {
             stepResult = quarterStepResult;

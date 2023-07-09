@@ -572,7 +572,7 @@ s32 act_debug_free_move(struct MarioState *m) {
     vec3s_set(m->marioObj->header.gfx.angle, 0, m->faceAngle[1], 0);
 
     if (gPlayer1Controller->buttonPressed == A_BUTTON) {
-        if (m->pos[1] <= m->waterLevel - 100) {
+        if (mario_below_water_level(100.f) && mario_below_water_level(0.f)) {
             action = ACT_WATER_IDLE;
         } else {
             action = ACT_IDLE;
@@ -641,7 +641,6 @@ s32 act_star_dance(struct MarioState *m) {
     if (m->actionState != 2 && m->actionTimer >= 40) {
         m->marioBodyState->handState = MARIO_HAND_PEACE_SIGN;
     }
-    stop_and_set_height_to_floor(m);
     return FALSE;
 }
 
@@ -658,7 +657,7 @@ s32 act_star_dance_water(struct MarioState *m) {
 }
 
 s32 act_fall_after_star_grab(struct MarioState *m) {
-    if (m->pos[1] < m->waterLevel - 130) {
+    if (mario_below_water_level(130.f) && mario_below_water_level(0.f)) {
         play_sound(SOUND_ACTION_UNKNOWN430, m->marioObj->header.gfx.cameraToObject);
         m->particleFlags |= PARTICLE_WATER_SPLASH;
         return set_mario_action(m, ACT_STAR_DANCE_WATER, m->actionArg);
@@ -770,8 +769,8 @@ s32 launch_mario_until_land(struct MarioState *m, s32 endAction, s32 animation, 
 s32 act_unlocking_key_door(struct MarioState *m) {
     m->faceAngle[1] = m->usedObj->oMoveAngleYaw;
 
-    m->pos[0] = m->usedObj->oPosX + coss(m->faceAngle[1]) * 75.0f;
-    m->pos[2] = m->usedObj->oPosZ + sins(m->faceAngle[1]) * 75.0f;
+    m->pos[0] = m->usedObj->oPosX - gMarioObject->oPosX + coss(m->faceAngle[1]) * 75.0f;
+    m->pos[2] = m->usedObj->oPosZ - gMarioObject->oPosZ + sins(m->faceAngle[1]) * 75.0f;
 
     if (m->actionArg & 2) {
         m->faceAngle[1] += 0x8000;
@@ -816,8 +815,8 @@ s32 act_unlocking_star_door(struct MarioState *m) {
             if (m->actionArg & 2) {
                 m->faceAngle[1] += 0x8000;
             }
-            m->marioObj->oMarioReadingSignDPosX = m->pos[0];
-            m->marioObj->oMarioReadingSignDPosZ = m->pos[2];
+            m->marioObj->oMarioReadingSignDPosX = gMarioObject->oPosX;
+            m->marioObj->oMarioReadingSignDPosZ = gMarioObject->oPosZ;
             set_mario_animation(m, MARIO_ANIM_SUMMON_STAR);
             m->actionState++;
             break;
@@ -841,8 +840,8 @@ s32 act_unlocking_star_door(struct MarioState *m) {
             break;
     }
 
-    m->pos[0] = m->marioObj->oMarioReadingSignDPosX;
-    m->pos[2] = m->marioObj->oMarioReadingSignDPosZ;
+    m->pos[0] = m->marioObj->oMarioReadingSignDPosX - gMarioObject->oPosX;
+    m->pos[2] = m->marioObj->oMarioReadingSignDPosZ - gMarioObject->oPosZ;
 
     update_mario_pos_for_anim(m);
     stop_and_set_height_to_floor(m);
@@ -867,8 +866,8 @@ s32 act_entering_star_door(struct MarioState *m) {
         // targetDX and targetDZ are the offsets to add to Mario's position to
         // have Mario stand 150 units in front of the door
 
-        targetDX = m->usedObj->oPosX + 150.0f * sins(targetAngle) - m->pos[0];
-        targetDZ = m->usedObj->oPosZ + 150.0f * coss(targetAngle) - m->pos[2];
+        targetDX = m->usedObj->oPosX + 150.0f * sins(targetAngle) - gMarioObject->oPosX;
+        targetDZ = m->usedObj->oPosZ + 150.0f * coss(targetAngle) - gMarioObject->oPosZ;
 
         m->marioObj->oMarioReadingSignDPosX = targetDX / 20.0f;
         m->marioObj->oMarioReadingSignDPosZ = targetDZ / 20.0f;
@@ -992,7 +991,7 @@ s32 act_emerge_from_pipe(struct MarioState *m) {
 
 s32 act_spawn_spin_airborne(struct MarioState *m) {
     // entered water, exit action
-    if (m->pos[1] < m->waterLevel - 100) {
+    if (mario_below_water_level(100.f) && mario_below_water_level(0.f)) {
         load_level_init_text(0);
         return set_water_plunge_action(m);
     }
@@ -1254,7 +1253,7 @@ s32 act_special_death_exit(struct MarioState *m) {
 
 s32 act_spawn_no_spin_airborne(struct MarioState *m) {
     launch_mario_until_land(m, ACT_SPAWN_NO_SPIN_LANDING, MARIO_ANIM_GENERAL_FALL, 0.0f);
-    if (m->pos[1] < m->waterLevel - 100) {
+    if (mario_below_water_level(100.f) && mario_below_water_level(0.f)) {
         set_water_plunge_action(m);
     }
     return FALSE;
@@ -1279,8 +1278,8 @@ s32 act_bbh_enter_spin(struct MarioState *m) {
     f32 cageDist;
     f32 forwardVel;
 
-    cageDX = m->usedObj->oPosX - m->pos[0];
-    cageDZ = m->usedObj->oPosZ - m->pos[2];
+    cageDX = m->usedObj->oPosX - gMarioObject->oPosX;
+    cageDZ = m->usedObj->oPosZ - gMarioObject->oPosZ;
     cageDist = sqrtf(cageDX * cageDX + cageDZ * cageDZ);
 
     if (cageDist > 20.0f) {
@@ -1365,8 +1364,8 @@ s32 act_bbh_enter_jump(struct MarioState *m) {
     play_mario_jump_sound(m);
 
     if (m->actionState == 0) {
-        cageDX = m->usedObj->oPosX - m->pos[0];
-        cageDZ = m->usedObj->oPosZ - m->pos[2];
+        cageDX = m->usedObj->oPosX - gMarioObject->oPosX;
+        cageDZ = m->usedObj->oPosZ - gMarioObject->oPosZ;
         cageDist = sqrtf(cageDX * cageDX + cageDZ * cageDZ);
 
         m->vel[1] = 60.0f;
@@ -1433,7 +1432,7 @@ s32 act_teleport_fade_in(struct MarioState *m) {
     }
 
     if (m->actionTimer++ == 32) {
-        if (m->pos[1] < m->waterLevel - 100) {
+        if (mario_below_water_level(100.f) && mario_below_water_level(0.f)) {
             // Check if the camera is not underwater.
             if (m->area->camera->mode != CAMERA_MODE_WATER_SURFACE) {
                 set_camera_mode(m->area->camera, CAMERA_MODE_WATER_SURFACE, 1);
@@ -2577,7 +2576,7 @@ static s32 act_credits_cutscene(struct MarioState *m) {
 
     m->statusForCamera->cameraEvent = CAM_EVENT_START_CREDITS;
     // checks if Mario is underwater (JRB, DDD, SA, etc.)
-    if (m->pos[1] < m->waterLevel - 100) {
+    if (mario_below_water_level(100.f) && mario_below_water_level(0.f)) {
         if (m->area->camera->mode != CAMERA_MODE_BEHIND_MARIO) {
             set_camera_mode(m->area->camera, CAMERA_MODE_BEHIND_MARIO, 1);
         }

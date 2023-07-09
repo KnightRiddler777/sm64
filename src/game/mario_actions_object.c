@@ -9,6 +9,7 @@
 #include "interaction.h"
 #include "engine/math_util.h"
 #include "rumble_init.h"
+#include "engine/surface_collision.h"
 
 /**
  * Used by act_punching() to determine Mario's forward velocity during each
@@ -439,8 +440,7 @@ s32 act_releasing_bowser(struct MarioState *m) {
 }
 
 s32 check_common_object_cancels(struct MarioState *m) {
-    f32 waterSurface = m->waterLevel - 100;
-    if (m->pos[1] < waterSurface) {
+    if (mario_below_water_level(100.f) && mario_below_water_level(0.f)) {
         return set_water_plunge_action(m);
     }
 
