@@ -201,7 +201,7 @@ f32 get_water_level_below_shadow(struct Shadow *s) {
  *                          be dimmed based on its distance to the floor
  */
 s8 init_shadow(struct Shadow *s, f32 xPos, f32 yPos, f32 zPos, s16 shadowScale, u8 overwriteSolidity) {
-    f32 waterLevel;
+    f32 waterLevel = -11000.f;
     f32 floorSteepness;
     struct FloorGeometry *floorGeometry;
 
@@ -211,9 +211,6 @@ s8 init_shadow(struct Shadow *s, f32 xPos, f32 yPos, f32 zPos, s16 shadowScale, 
 
     s->floorHeight = find_floor_height_and_data(s->parentX, s->parentY, s->parentZ, &floorGeometry);
 
-    if (gEnvironmentRegions != NULL) {
-        waterLevel = get_water_level_below_shadow(s);
-    }
     if (gShadowAboveWaterOrLava) {
         //! @bug Use of potentially undefined variable `waterLevel`
         s->floorHeight = waterLevel;
@@ -289,10 +286,9 @@ void get_texture_coords_4_vertices(s8 vertexNum, s16 *textureX, s16 *textureY) {
  */
 void make_shadow_vertex_at_xyz(Vtx *vertices, s8 index, f32 relX, f32 relY, f32 relZ, u8 alpha,
                                s8 shadowVertexType) {
-    s16 vtxX = round_float(relX);
-    s16 vtxY = round_float(relY);
-    s16 vtxZ = round_float(relZ);
+    Vec3s vtxPos;
     s16 textureX, textureY;
+    vec3s_set(vtxPos, round_float(relX), round_float(relY), round_float(relZ));
 
     switch (shadowVertexType) {
         case SHADOW_WITH_9_VERTS:
@@ -305,12 +301,15 @@ void make_shadow_vertex_at_xyz(Vtx *vertices, s8 index, f32 relX, f32 relY, f32 
 
     // Move the shadow up and over slightly while standing on a flying carpet.
     if (sMarioOnFlyingCarpet) {
-        vtxX += 5;
-        vtxY += 5;
-        vtxZ += 5;
+        vtxPos[0] += 5;
+        vtxPos[1] += 5;
+        vtxPos[2] += 5;
+    }
+    if (gCurrentObject == gMarioObject) {
+        mtxf_mul_vec3s(gLocalToWorldGravRotationMtx, vtxPos);
     }
     make_vertex( // shadows are black
-        vertices, index, vtxX, vtxY, vtxZ, textureX << 5, textureY << 5, 255, 255, 255, alpha
+        vertices, index, vtxPos[0], vtxPos[1], vtxPos[2], textureX << 5, textureY << 5, 255, 255, 255, alpha
     );
 }
 
@@ -610,6 +609,7 @@ Gfx *create_shadow_player(f32 xPos, f32 yPos, f32 zPos, s16 shadowScale, u8 soli
         }
     }
 
+    gCurrentObject = gMarioObject;
     switch (correct_shadow_solidity_for_animations(isLuigi, solidity, &shadow)) {
         case SHADOW_SOLIDITY_NO_SHADOW:
             return NULL;
@@ -631,12 +631,11 @@ Gfx *create_shadow_player(f32 xPos, f32 yPos, f32 zPos, s16 shadowScale, u8 soli
         return NULL;
     }
 
-    correct_lava_shadow_height(&shadow);
-
     for (i = 0; i < 9; i++) {
         make_shadow_vertex(verts, i, shadow, SHADOW_WITH_9_VERTS);
     }
     add_shadow_to_display_list(displayList, verts, SHADOW_WITH_9_VERTS, SHADOW_SHAPE_CIRCLE);
+    gCurrentObject = NULL;
     return displayList;
 }
 
@@ -888,7 +887,7 @@ Gfx *create_shadow_below_xyz(f32 xPos, f32 yPos, f32 zPos, s16 shadowScale, u8 s
                 create_shadow_square(xPos, yPos, zPos, shadowScale, shadowSolidity, shadowType);
             break;
         case SHADOW_CIRCLE_PLAYER:
-            displayList = create_shadow_player(xPos, yPos, zPos, shadowScale, shadowSolidity,
+            displayList = create_shadow_player(gMarioLocalFrameMovement[0], gMarioLocalFrameMovement[1], gMarioLocalFrameMovement[1], shadowScale, shadowSolidity,
                                                /* isLuigi */ FALSE);
             break;
         default:
@@ -896,5 +895,6 @@ Gfx *create_shadow_below_xyz(f32 xPos, f32 yPos, f32 zPos, s16 shadowScale, u8 s
                                                             shadowSolidity, shadowType);
             break;
     }
+    gCurrentObject = NULL;
     return displayList;
 }

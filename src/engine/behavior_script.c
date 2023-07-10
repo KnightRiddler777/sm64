@@ -12,6 +12,7 @@
 #include "game/object_helpers.h"
 #include "game/object_list_processor.h"
 #include "graph_node.h"
+#include "math_util.h"
 #include "surface_collision.h"
 
 // Macros for retrieving arguments from behavior scripts.
@@ -80,6 +81,7 @@ s32 random_sign(void) {
     }
 }
 
+extern Vec3f gCoinGfxOffset;
 // Update an object's graphical position and rotation to match its real position and rotation.
 void obj_update_gfx_pos_and_angle(struct Object *obj) {
     obj->header.gfx.pos[0] = obj->oPosX;
@@ -89,6 +91,12 @@ void obj_update_gfx_pos_and_angle(struct Object *obj) {
     obj->header.gfx.angle[0] = obj->oFaceAnglePitch & 0xFFFF;
     obj->header.gfx.angle[1] = obj->oFaceAngleYaw & 0xFFFF;
     obj->header.gfx.angle[2] = obj->oFaceAngleRoll & 0xFFFF;
+
+    if (cur_obj_has_model(MODEL_YELLOW_COIN) || cur_obj_has_model(MODEL_YELLOW_COIN_NO_SHADOW) ||
+	cur_obj_has_model(MODEL_RED_COIN) || cur_obj_has_model(MODEL_RED_COIN_NO_SHADOW) ||
+	cur_obj_has_model(MODEL_BLUE_COIN) || cur_obj_has_model(MODEL_BLUE_COIN_NO_SHADOW)) {
+	vec3f_add(obj->header.gfx.pos, gCoinGfxOffset);
+    }
 }
 
 // Push the address of a behavior command to the object's behavior stack.

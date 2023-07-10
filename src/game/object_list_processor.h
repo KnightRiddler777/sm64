@@ -116,6 +116,7 @@ extern s16 gMarioOnMerryGoRound;
 extern Vec3f gMarioVelTransformedVec;
 extern Vec3f gMarioAngTransformedVec;
 extern Vec3f gMarioLocalFrameMovement;
+extern s16 gMarioTrueYaw;
 
 void transform_mario_gfx_pos(void);
 void bhv_mario_update(void);

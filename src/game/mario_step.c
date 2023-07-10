@@ -244,6 +244,7 @@ void stop_and_set_height_to_floor(struct MarioState *m) {
     vec3s_set(marioObj->header.gfx.angle, 0, m->faceAngle[1], 0);
 }
 
+extern struct Object *gMarioPlatform;
 s32 stationary_ground_step(struct MarioState *m) {
     u32 takeStep;
     struct Object *marioObj = m->marioObj;
@@ -258,6 +259,15 @@ s32 stationary_ground_step(struct MarioState *m) {
     } else {
         //! This is responsible for several stationary downwarps.
         m->pos[1] = m->floorHeight;
+
+	if (m->floor == NULL) {
+	    gMarioPlatform = NULL;
+	    gMarioObject->platform = NULL;
+	    return GROUND_STEP_LEFT_GROUND;
+	} else {
+	    gMarioPlatform = m->floor->object;
+	    gMarioObject->platform = m->floor->object;
+	}
 
         vec3f_copy(marioObj->header.gfx.pos, m->pos);
         vec3s_set(marioObj->header.gfx.angle, 0, m->faceAngle[1], 0);
@@ -286,6 +296,8 @@ static s32 perform_ground_quarter_step(struct MarioState *m, Vec3f nextPos) {
     m->wall = upperWall;
 
     if (floor == NULL) {
+        gMarioPlatform = NULL;
+        gMarioObject->platform = NULL;
         return GROUND_STEP_LEFT_GROUND;
     }
 
@@ -296,23 +308,30 @@ static s32 perform_ground_quarter_step(struct MarioState *m, Vec3f nextPos) {
     }
 
     if (nextPos[1] > floorHeight + 100.0f) {
-        if (nextPos[1] + 150.0f >= ceilHeight) {
+        if (nextPos[1] + 120.0f >= ceilHeight) {
             return GROUND_STEP_HIT_WALL_STOP_QSTEPS;
         }
 
         vec3f_copy(m->pos, nextPos);
         m->floor = floor;
         m->floorHeight = floorHeight;
+        gMarioPlatform = NULL;
+        gMarioObject->platform = NULL;
         return GROUND_STEP_LEFT_GROUND;
     }
 
-    if (floorHeight + 150.0f >= ceilHeight) {
+    if (floorHeight + 120.0f >= ceilHeight) {
         return GROUND_STEP_HIT_WALL_STOP_QSTEPS;
     }
 
     vec3f_set(m->pos, nextPos[0], floorHeight, nextPos[2]);
     m->floor = floor;
     m->floorHeight = floorHeight;
+
+    if (floor != NULL) {
+        gMarioPlatform = floor->object;
+        gMarioObject->platform = floor->object;
+    }
 
     if (upperWall != NULL) {
         s16 wallDYaw = atan2s(upperWall->normal.z, upperWall->normal.x) - m->faceAngle[1];
@@ -414,7 +433,7 @@ s32 perform_air_quarter_step(struct MarioState *m, Vec3f intendedPos, u32 stepAr
 
     vec3f_copy(nextPos, intendedPos);
 
-    upperWall = resolve_and_return_wall_collisions(nextPos, 150.0f, 50.0f);
+    upperWall = resolve_and_return_wall_collisions(nextPos, 120.0f, 50.0f);
     lowerWall = resolve_and_return_wall_collisions(nextPos, 30.0f, 50.0f);
 
     floorHeight = find_floor(nextPos[0], nextPos[1], nextPos[2], &floor);
@@ -425,7 +444,7 @@ s32 perform_air_quarter_step(struct MarioState *m, Vec3f intendedPos, u32 stepAr
         floorHeight = distFromOrigin - 15000.f;
     }
 
-    ceilHeight = vec3f_find_ceil(nextPos, floorHeight, &ceil);
+    ceilHeight = find_ceil(nextPos[0], MAX(floorHeight, nextPos[1]) + 80.0f, nextPos[2], &ceil);
 
     waterLevel = find_water_level(nextPos[0] + gMarioObject->oPosX, nextPos[2] + gMarioObject->oPosZ);
 
@@ -452,7 +471,7 @@ s32 perform_air_quarter_step(struct MarioState *m, Vec3f intendedPos, u32 stepAr
 
     //! This check uses f32, but findFloor uses short (overflow jumps)
     if (nextPos[1] <= floorHeight) {
-        if (ceilHeight - floorHeight > 150.0f) {
+        if (ceilHeight - floorHeight > 120.0f) {
             m->pos[0] = nextPos[0];
             m->pos[2] = nextPos[2];
             m->floor = floor;
@@ -466,7 +485,7 @@ s32 perform_air_quarter_step(struct MarioState *m, Vec3f intendedPos, u32 stepAr
         return AIR_STEP_LANDED;
     }
 
-    if (nextPos[1] + 150.0f > ceilHeight) {
+    if (nextPos[1] + 120.0f > ceilHeight) {
         if (m->vel[1] >= 0.0f) {
             m->vel[1] = 0.0f;
 
@@ -637,6 +656,9 @@ s32 perform_air_step(struct MarioState *m, u32 stepArg) {
     s32 stepResult = AIR_STEP_NONE;
 
     m->wall = NULL;
+
+    gMarioPlatform = NULL;
+    gMarioObject->platform = NULL;
 
     for (i = 0; i < 4; i++) {
         intendedPos[0] = m->pos[0] + m->vel[0] / 4.0f;

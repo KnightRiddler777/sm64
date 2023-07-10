@@ -1,5 +1,11 @@
 // chuckya.inc.c
 
+void modify_and_retransform_vel(f32 fvel, f32 yvel) {
+    vec3f_set(gMarioState->vel,fvel*sins(gMarioState->faceAngle[1]),yvel,fvel*coss(gMarioState->faceAngle[1]));
+    gMarioState->forwardVel = fvel;
+    mtxf_mul_vec3f(gLocalToWorldGravRotationMtx, gMarioVelTransformedVec);
+}
+
 struct UnusedChuckyaData {
     u8 unk0;
     f32 unk4;
@@ -15,26 +21,33 @@ struct UnusedChuckyaData sUnusedChuckyaData[] = {
 };
 
 void common_anchor_mario_behavior(f32 sp28, f32 sp2C, s32 sp30) {
+    Vec3f oldMarioPos, newMarioPos;
     switch (o->parentObj->oChuckyaUnk88) {
         case 0:
             break;
 
         case 1:
+case1:
+            vec3f_copy(oldMarioPos, gMarioObject->header.gfx.pos);
             obj_set_gfx_pos_at_obj_pos(gMarioObject, o);
+            vec3f_copy(newMarioPos, gMarioObject->header.gfx.pos);
+            vec3f_sub(newMarioPos,oldMarioPos);
+            mtxf_mul_vec3f(gWorldToLocalGravRotationMtx,newMarioPos);
+            vec3f_add(gMarioLocalFrameMovement,newMarioPos);
             break;
 
         case 2:
             gMarioObject->oInteractStatus |= (INT_STATUS_MARIO_UNK2 + sp30);
-            gMarioStates[0].forwardVel = sp28;
-            gMarioStates[0].vel[1] = sp2C;
+            modify_and_retransform_vel(sp28,sp2C);
             o->parentObj->oChuckyaUnk88 = 0;
+	    goto case1;
             break;
 
         case 3:
             gMarioObject->oInteractStatus |= (INT_STATUS_MARIO_UNK2 | INT_STATUS_MARIO_UNK6);
-            gMarioStates[0].forwardVel = 10.0f;
-            gMarioStates[0].vel[1] = 10.0f;
+            modify_and_retransform_vel(10.0f,10.0f);
             o->parentObj->oChuckyaUnk88 = 0;
+	    goto case1;
             break;
     }
 

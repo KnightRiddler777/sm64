@@ -514,7 +514,7 @@ u32 bully_knock_back_mario(struct MarioState *mario) {
 }
 
 void bounce_off_object(struct MarioState *m, struct Object *o, f32 velY) {
-    m->pos[1] = o->oPosY + o->hitboxHeight - gMarioObject->oPosY;
+    gMarioObject->oPosY = o->oPosY + o->hitboxHeight;
     m->vel[1] = velY;
 
     m->flags &= ~MARIO_UNKNOWN_08;
@@ -637,8 +637,8 @@ void push_mario_out_of_object(struct MarioState *m, struct Object *o, f32 paddin
 
         f32_find_wall_collision(&newMarioX, &gMarioObject->oPosY, &newMarioZ, 60.0f, 50.0f);
 
-        m->pos[0] = newMarioX - gMarioObject->oPosX;
-        m->pos[2] = newMarioZ - gMarioObject->oPosZ;
+        gMarioState->pos[0] = newMarioX - gMarioObject->oPosX;
+        gMarioState->pos[2] = newMarioZ - gMarioObject->oPosZ;
     }
 }
 
@@ -894,57 +894,65 @@ u32 interact_warp(struct MarioState *m, UNUSED u32 interactType, struct Object *
     return FALSE;
 }
 
+u32 gMarioDoorWarpArg;
+
 u32 interact_warp_door(struct MarioState *m, UNUSED u32 interactType, struct Object *o) {
     u32 doorAction = 0;
     u32 saveFlags = save_file_get_flags();
     s16 warpDoorId = o->oBehParams >> 24;
     u32 actionArg;
 
-    if ((m->action == ACT_WALKING || m->action == ACT_DECELERATING) && (gGravityVector[1] > 0.95f)) {
-        if (warpDoorId == 1 && !(saveFlags & SAVE_FLAG_UNLOCKED_UPSTAIRS_DOOR)) {
-            if (!(saveFlags & SAVE_FLAG_HAVE_KEY_2)) {
-                if (!sDisplayingDoorText) {
-                    set_mario_action(m, ACT_READING_AUTOMATIC_DIALOG,
-                                     (saveFlags & SAVE_FLAG_HAVE_KEY_1) ? DIALOG_023 : DIALOG_022);
-                }
-                sDisplayingDoorText = TRUE;
+    if (gGravityVector[1] > 0.95f) {
+	if (m->action == ACT_WALKING || m->action == ACT_DECELERATING) {
+	    if (warpDoorId == 1 && !(saveFlags & SAVE_FLAG_UNLOCKED_UPSTAIRS_DOOR)) {
+		if (!(saveFlags & SAVE_FLAG_HAVE_KEY_2)) {
+		    if (!sDisplayingDoorText) {
+			set_mario_action(m, ACT_READING_AUTOMATIC_DIALOG, (saveFlags & SAVE_FLAG_HAVE_KEY_1) ? DIALOG_023 : DIALOG_022);
+		    }
+		    sDisplayingDoorText = TRUE;
 
-                return FALSE;
-            }
+		    return FALSE;
+		}
+		doorAction = ACT_UNLOCKING_KEY_DOOR;
+	    }
 
-            doorAction = ACT_UNLOCKING_KEY_DOOR;
-        }
+	    if (warpDoorId == 2 && !(saveFlags & SAVE_FLAG_UNLOCKED_BASEMENT_DOOR)) {
+		if (!(saveFlags & SAVE_FLAG_HAVE_KEY_1)) {
+		    if (!sDisplayingDoorText) {
+			// Moat door skip was intended confirmed
+			set_mario_action(m, ACT_READING_AUTOMATIC_DIALOG, (saveFlags & SAVE_FLAG_HAVE_KEY_2) ? DIALOG_023 : DIALOG_022);
+		    }
+		    sDisplayingDoorText = TRUE;
 
-        if (warpDoorId == 2 && !(saveFlags & SAVE_FLAG_UNLOCKED_BASEMENT_DOOR)) {
-            if (!(saveFlags & SAVE_FLAG_HAVE_KEY_1)) {
-                if (!sDisplayingDoorText) {
-                    // Moat door skip was intended confirmed
-                    set_mario_action(m, ACT_READING_AUTOMATIC_DIALOG,
-                                     (saveFlags & SAVE_FLAG_HAVE_KEY_2) ? DIALOG_023 : DIALOG_022);
-                }
-                sDisplayingDoorText = TRUE;
+		    return FALSE;
+		}
 
-                return FALSE;
-            }
+		doorAction = ACT_UNLOCKING_KEY_DOOR;
+	    }
 
-            doorAction = ACT_UNLOCKING_KEY_DOOR;
-        }
+	    if (m->action == ACT_WALKING || m->action == ACT_DECELERATING) {
+		actionArg = should_push_or_pull_door(m, o) + 0x00000004;
 
-        if (m->action == ACT_WALKING || m->action == ACT_DECELERATING) {
-            actionArg = should_push_or_pull_door(m, o) + 0x00000004;
+		if (doorAction == 0) {
+		    if (actionArg & 0x00000001) {
+			doorAction = ACT_PULLING_DOOR;
+		    } else {
+			doorAction = ACT_PUSHING_DOOR;
+		    }
+		}
 
-            if (doorAction == 0) {
-                if (actionArg & 0x00000001) {
-                    doorAction = ACT_PULLING_DOOR;
-                } else {
-                    doorAction = ACT_PUSHING_DOOR;
-                }
-            }
-
-            m->interactObj = o;
-            m->usedObj = o;
-            return set_mario_action(m, doorAction, actionArg);
-        }
+		m->interactObj = o;
+		m->usedObj = o;
+		gMarioDoorWarpArg = actionArg;
+		return set_mario_action(m, doorAction, actionArg);
+	    }
+	}
+    } else if (!((warpDoorId == 1 && !(saveFlags & SAVE_FLAG_UNLOCKED_UPSTAIRS_DOOR)) || (warpDoorId == 2 && !(saveFlags & SAVE_FLAG_UNLOCKED_BASEMENT_DOOR)))
+	&& (o->oAction == 0) && (o->oTimer > 10)) {
+        m->interactObj = o;
+        m->usedObj = o;
+		gMarioDoorWarpArg = should_push_or_pull_door(m, o);
+        o->oInteractStatus = 0x00010000;
     }
 
     return FALSE;
@@ -1054,7 +1062,7 @@ u32 interact_door(struct MarioState *m, UNUSED u32 interactType, struct Object *
             m->usedObj = o;
             return set_mario_action(m, ACT_ENTERING_STAR_DOOR, should_push_or_pull_door(m, o));
         }
-    } else if ((numStars >= requiredNumStars) && (o->oAction == 0)) {
+    } else if ((numStars >= requiredNumStars) && (o->oAction == 0) && (o->oTimer > 10)) {
         m->interactObj = o;
         m->usedObj = o;
         o->oInteractStatus = 0x00010000;
@@ -1509,7 +1517,7 @@ u32 check_object_grab_mario(struct MarioState *m, UNUSED u32 interactType, struc
 
 u32 interact_pole(struct MarioState *m, UNUSED u32 interactType, struct Object *o) {
     s32 actionId = m->action & ACT_ID_MASK;
-    if (actionId >= 0x080 && actionId < 0x0A0) {
+    if (actionId >= 0x080 && actionId < 0x0A0 && (gGravityVector[1] > 0.99f)) {
         if (!(m->prevAction & ACT_FLAG_ON_POLE) || m->usedObj != o) {
 #ifdef VERSION_SH
             f32 velConv = m->forwardVel; // conserve the velocity.
@@ -1816,9 +1824,10 @@ void mario_process_interactions(struct MarioState *m) {
     }
 }
 
-void check_death_barrier(struct MarioState *m) {
-    if (m->pos[1] < m->floorHeight + 2048.0f) {
-        if (level_trigger_warp(m, WARP_OP_WARP_FLOOR) == 20 && !(m->flags & MARIO_UNKNOWN_18)) {
+extern struct Surface gDeathPlanePseudoFloor;
+void check_death_barrier(struct MarioState *m, f32 y, f32 height) {
+    if (y < height + 2048.0f) {
+        if (level_trigger_warp(m, (((gMarioState->floor == &gDeathPlanePseudoFloor) && ((gCurrLevelNum == LEVEL_JRB) || (gCurrLevelNum == LEVEL_DDD))) ? WARP_OP_DEATH : WARP_OP_WARP_FLOOR)) == 20 && !(m->flags & MARIO_UNKNOWN_18)) {
             play_sound(SOUND_MARIO_WAAAOOOW, m->marioObj->header.gfx.cameraToObject);
         }
     }
@@ -1856,6 +1865,7 @@ void pss_end_slide(struct MarioState *m) {
 }
 
 extern s16 marioTrueFloorType;
+extern f32 marioTrueFloorHeight;
 
 void mario_handle_special_floors(struct MarioState *m) {
     if ((m->action & ACT_GROUP_MASK) == ACT_GROUP_CUTSCENE) {
@@ -1875,6 +1885,11 @@ void mario_handle_special_floors(struct MarioState *m) {
             case SURFACE_TIMER_END:
                 pss_end_slide(m);
                 break;
+
+	    case SURFACE_DEATH_PLANE:
+            case SURFACE_VERTICAL_WIND:
+		check_death_barrier(m, gMarioObject->oPosY, marioTrueFloorHeight);
+                break;
         }
     }
 
@@ -1885,7 +1900,7 @@ void mario_handle_special_floors(struct MarioState *m) {
                 break;
             case SURFACE_DEATH_PLANE:
             case SURFACE_VERTICAL_WIND:
-                check_death_barrier(m);
+                check_death_barrier(m, m->pos[1], m->floorHeight);
                 break;
         }
     }

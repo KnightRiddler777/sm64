@@ -326,7 +326,7 @@ static void geo_process_camera(struct GraphNodeCamera *node) {
     mtxf_lookat(cameraTransform, node->pos, node->focus, node->roll);
 
     // Apply gravity transformation to camera
-    if ((gCurrentArea != NULL) && gUpdateCamera) {
+    if ((gCurrentArea != NULL) && (gCurrentArea->camera != NULL) && gUpdateCamera) {
 	switch (gCurrentArea->camera->cutscene) {
 	    case CUTSCENE_INTRO_PEACH:
 	    case CUTSCENE_END_WAVING:
@@ -817,6 +817,8 @@ static s32 obj_is_in_view(struct GraphNodeObject *node, Mat4 matrix) {
     return TRUE;
 }
 
+extern struct GraphNodeObject gMirrorMario;
+
 /**
  * Process an object node.
  */
@@ -828,7 +830,7 @@ static void geo_process_object(struct Object *node) {
     if (node->header.gfx.areaIndex == gCurGraphNodeRoot->areaIndex) {
         if (node->behavior == segmented_to_virtual(bhvMario)) {
             if (gUseMarioThrowMtx) {
-                    mtxf_copy(mtxf, gMarioObject->header.gfx.throwMatrix);
+                    mtxf_copy(mtxf, node->header.gfx.throwMatrix);
                     gUseMarioThrowMtx = FALSE;
                 } else {
                     vec3f_copy(translVec,gMarioLocalFrameMovement);
@@ -840,11 +842,11 @@ static void geo_process_object(struct Object *node) {
                         translVec[1] += 42.f;
                     }
                     translVec[1] -= gMarioState->quicksandDepth;
-                    mtxf_rotate_zxy_and_translate(mtxf, translVec, gMarioObject->header.gfx.angle);
+                    mtxf_rotate_zxy_and_translate(mtxf, translVec, node->header.gfx.angle);
                 }
                 // Combine with gravity transform matrix
-                mtxf_mul(gMarioObject->transform, mtxf, gLocalToWorldGravTransformMtx);
-                gMarioObject->header.gfx.throwMatrix = gMarioObject->transform;
+                mtxf_mul(node->transform, mtxf, gLocalToWorldGravTransformMtx);
+                node->header.gfx.throwMatrix = node->transform;
         } else if (node->behavior == segmented_to_virtual(bhvKoopaShell) && (node->oAction == 1)) {
             vec3f_copy(translVec,gMarioLocalFrameMovement);
             mtxf_copy(node->transform,gLocalToWorldGravTransformMtx);
@@ -859,7 +861,14 @@ static void geo_process_object(struct Object *node) {
         } else if (node->header.gfx.node.flags & GRAPH_RENDER_BILLBOARD) {
             mtxf_billboard(gMatStack[gMatStackIndex + 1], gMatStack[gMatStackIndex],
                            node->header.gfx.pos, gCurGraphNodeCamera->roll);
-        } else {
+        } else if ((struct GraphNodeObject *)node == &gMirrorMario) {
+	    mtxf_copy(mtxf, gMarioObject->transform);
+	    mtxf[0][0] *= -1.f;
+	    mtxf[1][0] *= -1.f;
+	    mtxf[2][0] *= -1.f;
+	    mtxf[3][0] = 4331.53f*2-mtxf[3][0];
+	    mtxf_mul(gMatStack[gMatStackIndex + 1], mtxf, gMatStack[gMatStackIndex]);
+	} else {
             mtxf_rotate_zxy_and_translate(mtxf, node->header.gfx.pos, node->header.gfx.angle);
             mtxf_mul(gMatStack[gMatStackIndex + 1], mtxf, gMatStack[gMatStackIndex]);
         }

@@ -117,7 +117,7 @@ void check_ledge_climb_down(struct MarioState *m) {
 
         if (find_wall_collisions(&wallCols) != 0) {
             floorHeight = find_floor(wallCols.x, wallCols.y, wallCols.z, &floor);
-            if (floor != NULL && (wallCols.y - floorHeight > 160.0f)) {
+            if (floor != NULL && (wallCols.y - floorHeight > 150.0f)) {
                 wall = wallCols.walls[wallCols.numWalls - 1];
                 wallAngle = atan2s(wall->normal.z, wall->normal.x);
                 wallDYaw = wallAngle - m->faceAngle[1];
@@ -213,6 +213,9 @@ void update_sliding_angle(struct MarioState *m, f32 accel, f32 lossFactor) {
     if (m->forwardVel > 100.0f) {
         m->slideVelX = m->slideVelX * 100.0f / m->forwardVel;
         m->slideVelZ = m->slideVelZ * 100.0f / m->forwardVel;
+	m->vel[0] = m->slideVelX;
+	m->vel[2] = m->slideVelZ;
+	m->forwardVel = sqrtf(m->slideVelX * m->slideVelX + m->slideVelZ * m->slideVelZ);
     }
 
     if (newFacingDYaw < -0x4000 || newFacingDYaw > 0x4000) {
@@ -275,6 +278,8 @@ s32 update_sliding(struct MarioState *m, f32 stopSpeed) {
         m->slideVelX = m->slideVelX * oldSpeed / newSpeed;
         m->slideVelZ = m->slideVelZ * oldSpeed / newSpeed;
     }
+
+    newSpeed = sqrtf(m->slideVelX * m->slideVelX + m->slideVelZ * m->slideVelZ);
 
     update_sliding_angle(m, accel, lossFactor);
 
@@ -1757,7 +1762,7 @@ u32 common_landing_action(struct MarioState *m, s16 animation, u32 airAction) {
     set_mario_animation(m, animation);
     play_mario_landing_sound_once(m, SOUND_ACTION_TERRAIN_LANDING);
 
-    if (m->floor->type >= SURFACE_SHALLOW_QUICKSAND && m->floor->type <= SURFACE_MOVING_QUICKSAND) {
+    if (m->floor && m->floor->type >= SURFACE_SHALLOW_QUICKSAND && m->floor->type <= SURFACE_MOVING_QUICKSAND) {
         m->quicksandDepth += (4 - m->actionTimer) * 3.5f - 0.5f;
     }
 

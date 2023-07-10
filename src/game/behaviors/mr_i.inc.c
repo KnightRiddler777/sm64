@@ -230,7 +230,7 @@ void mr_i_act_2(void) {
 void mr_i_act_1(void) {
     s16 sp1E = obj_angle_to_object(o, gMarioObject);
     s16 sp1C = abs_angle_diff(o->oMoveAngleYaw, sp1E);
-    s16 sp1A = abs_angle_diff(o->oMoveAngleYaw, gMarioObject->oFaceAngleYaw);
+    s16 sp1A = abs_angle_diff(o->oMoveAngleYaw, gMarioTrueYaw);
 
     if (o->oTimer == 0) {
         cur_obj_become_tangible();

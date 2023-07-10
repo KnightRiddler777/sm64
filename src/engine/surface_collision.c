@@ -136,6 +136,12 @@ static s32 find_wall_collisions_from_list(struct SurfaceNode *surfaceNode,
             }
         }
 
+        if (gCurrentObject != gMarioObject) {
+            if ((surf->normal.y > 0.01f) || (surf->normal.y < -0.01f)) {
+                continue;
+            }
+        }
+
         //! (Wall Overlaps) Because this doesn't update the x and z local variables,
         //  multiple walls can push mario more than is required.
         data->x += surf->normal.x * (radius - offset);
@@ -202,7 +208,7 @@ s32 find_wall_collisions(struct WallCollisionData *colData) {
     } else {
         node = gDynamicSurfaces.next;
         numCollisions += find_wall_collisions_from_list(node, colData);
-        node = gStaticSurfaces[get_cell(colData->x, colData->y, colData->z)].next;
+        node = gStaticSurfaces[get_cell((s16)colData->x, (s16)colData->y, (s16)colData->z)].next;
     }
     numCollisions += find_wall_collisions_from_list(node, colData);
 
@@ -262,6 +268,14 @@ static struct Surface *find_ceil_from_list(struct SurfaceNode *surfaceNode, s32 
             continue;
         }
 
+        if (surf->type == SURFACE_VANISH_CAP_WALLS) {
+            // If Mario has a vanish cap, pass through the vanish cap wall.
+            if (gCurrentObject != NULL && gCurrentObject == gMarioObject
+                && (gMarioState->flags & MARIO_VANISH_CAP)) {
+                continue;
+            }
+        }
+
         {
             f32 nx = surf->normal.x;
             f32 ny = surf->normal.y;
@@ -269,9 +283,10 @@ static struct Surface *find_ceil_from_list(struct SurfaceNode *surfaceNode, s32 
             f32 oo = surf->originOffset;
             f32 height;
 
-            // If a wall, ignore it. Likely a remnant, should never occur.
-            if (ny == 0.0f) {
-                continue;
+            if (gCurrentObject != gMarioObject) {
+                if (ny > -0.01f) {
+                    continue;
+                }
             }
 
             // Find the ceil height at the specific point.
@@ -329,7 +344,7 @@ f32 find_ceil(f32 posX, f32 posY, f32 posZ, struct Surface **pceil) {
     } else {
         surfaceList = gDynamicSurfaces.next;
         dynamicCeil = find_ceil_from_list(surfaceList, x, y, z, &dynamicHeight);
-        surfaceList = gStaticSurfaces[get_cell(x, y, z)].next;
+        surfaceList  = gStaticSurfaces[get_cell((s16)x, (s16)y, (s16)z)].next;
     }
     ceil = find_ceil_from_list(surfaceList, x, y, z, &height);
 
@@ -435,10 +450,19 @@ static struct Surface *find_floor_from_list(struct SurfaceNode *surfaceNode, s32
             if (surf->flags & SURFACE_FLAG_NO_CAM_COLLISION) {
                 continue;
             }
-        }
-        // If we are not checking for the camera, ignore camera only floors.
-        else if (surf->type == SURFACE_CAMERA_BOUNDARY) {
+        } else if (surf->type == SURFACE_CAMERA_BOUNDARY) {
+	    // If we are not checking for the camera, ignore camera only floors.
             continue;
+        } else if ((surf->type == SURFACE_INTANGIBLE) && (!gFindFloorIncludeSurfaceIntangible)) {
+	    continue;
+	}
+
+        if (surf->type == SURFACE_VANISH_CAP_WALLS) {
+            // If Mario has a vanish cap, pass through the vanish cap wall.
+            if (gCurrentObject != NULL && gCurrentObject == gMarioObject
+                && (gMarioState->flags & MARIO_VANISH_CAP)) {
+                continue;
+            }
         }
 
         nx = surf->normal.x;
@@ -446,9 +470,10 @@ static struct Surface *find_floor_from_list(struct SurfaceNode *surfaceNode, s32
         nz = surf->normal.z;
         oo = surf->originOffset;
 
-        // If a wall, ignore it. Likely a remnant, should never occur.
-        if (ny == 0.0f) {
-            continue;
+        if (gCurrentObject != gMarioObject) {
+            if (ny < 0.01f) {
+                continue;
+            }
         }
 
         // Find the height of the floor at a given location.
@@ -512,23 +537,14 @@ f32 find_floor(f32 xPos, f32 yPos, f32 zPos, struct Surface **pfloor) {
     } else {
         surfaceList = gDynamicSurfaces.next;
         dynamicFloor = find_floor_from_list(surfaceList, x, y, z, &dynamicHeight);
-        surfaceList = gStaticSurfaces[get_cell(x, y, z)].next;
+        surfaceList = gStaticSurfaces[get_cell((s16)x, (s16)y, (s16)z)].next;
     }
     floor = find_floor_from_list(surfaceList, x, y, z, &height);
 
     // To prevent the Merry-Go-Round room from loading when Mario passes above the hole that leads
     // there, SURFACE_INTANGIBLE is used. This prevent the wrong room from loading, but can also allow
     // Mario to pass through.
-    if (!gFindFloorIncludeSurfaceIntangible) {
-        //! (BBH Crash) Most NULL checking is done by checking the height of the floor returned
-        //  instead of checking directly for a NULL floor. If this check returns a NULL floor
-        //  (happens when there is no floor under the SURFACE_INTANGIBLE floor) but returns the height
-        //  of the SURFACE_INTANGIBLE floor instead of the typical -11000 returned for a NULL floor.
-        if (floor != NULL && floor->type == SURFACE_INTANGIBLE) {
-            floor = find_floor_from_list(surfaceList, x, (s32)(height - 200.0f), z, &height);
-        }
-    } else {
-        // To prevent accidentally leaving the floor tangible, stop checking for it.
+    if (gFindFloorIncludeSurfaceIntangible) {
         gFindFloorIncludeSurfaceIntangible = FALSE;
     }
 
@@ -589,6 +605,7 @@ f32 find_water_level(f32 x, f32 z) {
     return waterLevel;
 }
 
+extern f32 marioTrueFloorHeight;
 u32 mario_below_water_level(f32 dist) {
     Vec3f testPoint;
     f32 waterLevel;
@@ -599,6 +616,8 @@ u32 mario_below_water_level(f32 dist) {
 
     waterLevel = find_water_level(testPoint[0], testPoint[2]);
     if (waterLevel == -11000.f) return FALSE;
+
+    if ((marioTrueFloorHeight + 100.f > waterLevel) & (dist >= 100.f)) return FALSE;
 
     return (testPoint[1] < waterLevel);
 }

@@ -319,27 +319,39 @@ f32 calculate_sphere_field(Vec3f grav, Vec3f relPos) {
 f32 marioTrueFloorHeight = 0.f;
 s16 marioTrueFloorForce = 0;
 s16 marioTrueFloorType = SURFACE_DEFAULT;
+s16 gMarioTrueYaw = 0;
+Vec3f gCoinGfxOffset;
 
 /**
  * Mario's primary behavior update function.
  */
 void bhv_mario_update(void) {
     u32 particleFlags = 0;
+    Vec3f checkOffset;
     s32 i;
     s16 angToFvel; f32 marioSpeed;
     s16 yawChange;
     struct Surface *floor;
 
-    // Find special surfaces under Mario
-    gCurrentObject = NULL;
-    marioTrueFloorHeight = find_floor(gMarioObject->oPosX, gMarioObject->oPosY, gMarioObject->oPosZ, &floor);
-    marioTrueFloorType = (floor == NULL ? -1 : floor->type);
-    marioTrueFloorForce = (floor == NULL ? 0 : floor->force);
-    gCurrentObject = gMarioObject;
-
     // Create the matrices from the gravity vector
     create_local_to_world_transform_matrix();
     create_world_to_local_transform_matrix();
+
+    vec3f_set(gCoinGfxOffset, 0.f, -30.f, 0.f);
+    mtxf_mul_vec3f(gLocalToWorldGravRotationMtx, gCoinGfxOffset);
+    gCoinGfxOffset[1] += 30.f;
+    // Find special surfaces under Mario
+    gCurrentObject = NULL;
+    vec3f_set(checkOffset,0,50,0);
+    mtxf_mul_vec3f(gLocalToWorldGravRotationMtx, checkOffset);
+    if ((gMarioState->action & ACT_FLAG_SWIMMING) && (gCurrLevelNum != LEVEL_JRB)) {
+        checkOffset[1] = find_water_level(checkOffset[0], checkOffset[2]) - gMarioObject->oPosY;
+    }
+    marioTrueFloorHeight = find_floor(gMarioObject->oPosX + checkOffset[0], gMarioObject->oPosY + checkOffset[1], gMarioObject->oPosZ + checkOffset[2], &floor);
+    marioTrueFloorType = (floor == NULL ? -1 : floor->type);
+    marioTrueFloorForce = (floor == NULL ? 0 : floor->force);
+    //if (floor) gMarioCurrentRoom = floor->room;
+    gCurrentObject = gMarioObject;
 
     // Rotate the velocity and angle stored last frame back into local coordinates
     mtxf_mul_vec3f(gWorldToLocalGravRotationMtx, gMarioVelTransformedVec);
@@ -383,6 +395,7 @@ void bhv_mario_update(void) {
     gMarioState->pos[1] -= gMarioObject->oPosY;
     gMarioState->pos[2] -= gMarioObject->oPosZ;
 
+    apply_mario_platform_displacement();
     particleFlags = execute_mario_action(gCurrentObject);
     gCurrentObject->oMarioParticleFlags = particleFlags;
 
@@ -414,6 +427,7 @@ void bhv_mario_update(void) {
     vec3f_set(gMarioAngTransformedVec,sins(gMarioState->faceAngle[1]), 0, coss(gMarioState->faceAngle[1]));
     mtxf_mul_vec3f(gLocalToWorldGravRotationMtx, gMarioVelTransformedVec);
     mtxf_mul_vec3f(gLocalToWorldGravRotationMtx, gMarioAngTransformedVec);
+    gMarioTrueYaw = atan2s(gMarioAngTransformedVec[2], gMarioAngTransformedVec[0]);
 
     i = 0;
     while (sParticleTypes[i].particleFlag != 0) {
@@ -635,7 +649,7 @@ void spawn_objects_from_info(UNUSED s32 unused, struct SpawnInfo *spawnInfo) {
             object->respawnInfoType = RESPAWN_INFO_TYPE_32;
             object->respawnInfo = &spawnInfo->behaviorArg;
 
-            if (spawnInfo->behaviorArg & 0x01) {
+            if (spawnInfo->behaviorScript == bhvMario) {
                 gMarioObject = object;
                 geo_make_first_child(&object->header.gfx.node);
             }

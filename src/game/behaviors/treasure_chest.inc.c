@@ -66,10 +66,11 @@ void bhv_treasure_chest_bottom_init(void) {
 }
 
 void bhv_treasure_chest_bottom_loop(void) {
+    s16 marioTrueYaw = obj_angle_to_object(o, gMarioObject);
     switch (o->oAction) {
         case 0:
-            if (obj_check_if_facing_toward_angle(o->oMoveAngleYaw, gMarioState->faceAngle[1] + 0x8000, 0x3000)
-                && is_point_within_radius_of_mario(o->oPosX, o->oPosY, o->oPosZ, 150)
+            if (obj_check_if_facing_toward_angle(o->oMoveAngleYaw, marioTrueYaw, 0x3000)
+                && is_point_within_radius_of_mario(o->oPosX, o->oPosY, o->oPosZ, 200)
                 && !o->parentObj->oTreasureChestUnkF8) {
                 if (o->parentObj->oTreasureChestUnkF4 == o->oBehParams2ndByte) {
                     play_sound(SOUND_GENERAL2_RIGHT_ANSWER, gGlobalSoundSource);

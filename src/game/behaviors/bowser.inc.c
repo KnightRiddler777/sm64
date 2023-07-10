@@ -126,7 +126,7 @@ void bhv_bowser_body_anchor_loop(void) {
 #if BUGFIX_BOWSER_COLLIDE_BITS_DEAD
         // Clear interaction type at the last sub action in BitS
         // Fixes collision coliding after defeating him
-        if (o->parentObj->oSubAction == BOWSER_SUB_ACT_DEAD_FINAL_END_OVER) {
+        if ((o->parentObj->oSubAction == 11) || (o->parentObj->oSubAction == 4)) {
             o->oInteractType = 0;
         } else {
             o->oInteractType = INTERACT_TEXT;
@@ -1581,6 +1581,8 @@ s8 sBowserRainbowLight[] = { FALSE, FALSE, TRUE };
  */
 s8 sBowserHealth[] = { 1, 1, 3 };
 
+struct PlatformDisplacementInfo sBowserDisplacementInfo;
+
 /**
  * Update Bowser's actions when he's hands free
  */
@@ -1591,14 +1593,14 @@ void bowser_free_update(void) {
 
     // Platform displacement check (for BitFS)
     if ((platform = o->platform) != NULL) {
-        apply_platform_displacement(FALSE, platform);
+        apply_platform_displacement(&sBowserDisplacementInfo, &o->oPosX, &o->oFaceAngleYaw, platform);
     }
     // Reset grabbed status
     o->oBowserGrabbedStatus = BOWSER_GRAB_STATUS_NONE;
     // Update positions and actions (default action)
     cur_obj_update_floor_and_walls();
     cur_obj_call_action_function(sBowserActions);
-    cur_obj_move_standard(-78);
+    if ((o->oAction != 4) || (o->oSubAction < 2)) cur_obj_move_standard(-78);
     // Jump on stage if Bowser has fallen off
     if (bowser_check_fallen_off_stage()) {
         o->oAction = BOWSER_ACT_JUMP_ONTO_STAGE;

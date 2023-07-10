@@ -13,6 +13,9 @@ static s32 sDoorCloseSounds[] = { SOUND_GENERAL_CLOSE_WOOD_DOOR, SOUND_GENERAL_C
 
 void door_animation_and_reset(s32 sp18) {
     cur_obj_init_animation_with_sound(sp18);
+    if ((o->oTimer > 50) && (o->oTimer < 80)) {
+        o->header.gfx.animInfo.animFrame--;
+    }
     if (cur_obj_check_if_near_animation_end()) {
         o->oAction = 0;
     }
@@ -33,7 +36,12 @@ void play_door_open_noise(void) {
         cur_obj_play_sound_2(sDoorOpenSounds[sp1C]);
         gTimeStopState |= TIME_STOP_MARIO_OPENED_DOOR;
     }
-    if (o->oTimer == 70) {
+
+    if ((o->oTimer == 14) && (o->oInteractType == INTERACT_WARP_DOOR)) {
+	level_trigger_warp(gMarioState, WARP_OP_WARP_DOOR);
+    }
+
+    if (o->oTimer == 100) {
         cur_obj_play_sound_2(sDoorCloseSounds[sp1C]);
     }
 }
@@ -86,6 +94,7 @@ void bhv_door_loop(void) {
     bhv_star_door_loop_2();
 }
 
+extern s32 gCurrLevelArea;
 void bhv_door_init(void) {
     f32 x;
     f32 z;
@@ -103,6 +112,12 @@ void bhv_door_init(void) {
     find_floor(x, o->oPosY, z, &floor);
     if (floor != NULL) {
         o->oDoorUnkFC = floor->room;
+    }
+
+    if (o->oDoorUnkF8 == 9 && gCurrLevelNum == LEVEL_CASTLE && gCurrentArea->index == 1) {
+        o->oDoorUnkF8 = 17;
+        o->oDoorUnkFC = 1;
+        o->oDoorUnk100 = 9;
     }
 
     x = o->oPosX + sins(o->oMoveAngleYaw) * -200.0f;

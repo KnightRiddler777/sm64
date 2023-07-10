@@ -78,9 +78,10 @@ static u32 perform_water_full_step(struct MarioState *m, Vec3f nextPos) {
     wall = resolve_and_return_wall_collisions(nextPos, 10.0f, 110.0f);
     floorHeight = find_floor(nextPos[0], nextPos[1], nextPos[2], &floor);
     ceilHeight = vec3f_find_ceil(nextPos, floorHeight, &ceil);
+    if (ceilHeight < nextPos[1]) ceilHeight = 20000.f;
 
     if (nextPos[1] >= floorHeight) {
-        if (ceilHeight - nextPos[1] >= 160.0f) {
+        if (ceilHeight - nextPos[1] >= 150.0f) {
             vec3f_copy(m->pos, nextPos);
             m->floor = floor;
             m->floorHeight = floorHeight;
@@ -92,17 +93,17 @@ static u32 perform_water_full_step(struct MarioState *m, Vec3f nextPos) {
             }
         }
 
-        if (ceilHeight - floorHeight < 160.0f) {
+        if (ceilHeight - floorHeight < 150.0f) {
             return WATER_STEP_CANCELLED;
         }
 
         //! Water ceiling downwarp
-        vec3f_set(m->pos, nextPos[0], ceilHeight - 160.0f, nextPos[2]);
+        vec3f_set(m->pos, nextPos[0], ceilHeight - 150.0f, nextPos[2]);
         m->floor = floor;
         m->floorHeight = floorHeight;
         return WATER_STEP_HIT_CEILING;
     } else {
-        if (ceilHeight - floorHeight < 160.0f) {
+        if (ceilHeight - floorHeight < 140.0f) {
             return WATER_STEP_CANCELLED;
         }
 
@@ -175,12 +176,16 @@ static void apply_water_current(struct MarioState *m, Vec3f step) {
     }
 }
 
+extern struct Object *gMarioPlatform;
 static u32 perform_water_step(struct MarioState *m) {
     UNUSED u8 filler[4];
     u32 stepResult;
     Vec3f nextPos;
     Vec3f step;
     struct Object *marioObj = m->marioObj;
+
+    gMarioPlatform = NULL;
+    gMarioObject->platform = NULL;
 
     vec3f_copy(step, m->vel);
 
@@ -1047,7 +1052,6 @@ static s32 act_caught_in_whirlpool(struct MarioState *m) {
     f32 cosAngleChange;
     f32 newDistance;
     Vec3f whirlpoolPos;
-    Vec3f marioRelPos;
     s16 angleChange;
 
     struct Object *marioObj = m->marioObj;
@@ -1092,12 +1096,9 @@ static s32 act_caught_in_whirlpool(struct MarioState *m) {
         dz *= newDistance / distance;
     }
 
-    vec3f_set(marioRelPos, 0, marioObj->oMarioWhirlpoolPosY, 0);
-    mtxf_mul_vec3f(gWorldToLocalGravRotationMtx, marioRelPos);
-
     m->pos[0] = whirlpoolPos[0] + dx * cosAngleChange + dz * sinAngleChange;
     m->pos[2] = whirlpoolPos[2] - dx * sinAngleChange + dz * cosAngleChange;
-    m->pos[1] = whirlpoolPos[1] + marioRelPos[1];
+    m->pos[1] = whirlpoolPos[1] + marioObj->oMarioWhirlpoolPosY*gGravityVector[1];
 
     m->faceAngle[1] = atan2s(dz, dx) + 0x8000;
 
@@ -1509,10 +1510,13 @@ static s32 act_hold_metal_water_fall_land(struct MarioState *m) {
     return FALSE;
 }
 
+extern f32 marioTrueFloorHeight;
 static s32 check_common_submerged_cancels(struct MarioState *m) {
     if (!mario_below_water_level(80.f)) {
         if (m->floorHeight < -10.f) {
-            m->pos[1] = m->waterLevel - gMarioObject->oPosY - 80;
+	    if (m->waterLevel != -11000.f) {
+		m->pos[1] = m->waterLevel - gMarioObject->oPosY - 80;
+	    }
         } else {
             //! If you press B to throw the shell, there is a ~5 frame window
             // where your held object is the shell, but you are not in the
@@ -1529,6 +1533,7 @@ static s32 check_common_submerged_cancels(struct MarioState *m) {
     }
 
     if (!mario_below_water_level(50.f)) {
+	set_camera_mode(m->area->camera, m->area->camera->defMode, 1);
         return set_mario_action(m, ACT_FREEFALL, 0);
     }
 

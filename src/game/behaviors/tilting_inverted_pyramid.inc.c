@@ -133,7 +133,6 @@ void bhv_tilting_inverted_pyramid_loop(void) {
         mx += posAfterRotation[0] - posBeforeRotation[0];
         my += posAfterRotation[1] - posBeforeRotation[1];
         mz += posAfterRotation[2] - posBeforeRotation[2];
-        set_mario_pos(mx, my, mz);
     }
 
     o->header.gfx.throwMatrix = transform;

@@ -1345,16 +1345,13 @@ s32 act_air_hit_wall(struct MarioState *m) {
             m->vel[1] = 0.0f;
         }
 
-        if (m->forwardVel > 8.0f) {
+        if (m->forwardVel > 0.0f) {
             mario_set_forward_vel(m, -8.0f);
         }
         return set_mario_action(m, ACT_SOFT_BONK, 0);
     }
 
-#ifdef AVOID_UB
-    return
-#endif
-    set_mario_animation(m, MARIO_ANIM_START_WALLKICK);
+    return set_mario_animation(m, MARIO_ANIM_START_WALLKICK);
 
     //! Missing return statement. The returned value is the result of the call
     // to set_mario_animation. In practice, this value is nonzero.
@@ -1678,9 +1675,12 @@ s32 act_jump_kick(struct MarioState *m) {
 }
 
 s32 act_shot_from_cannon(struct MarioState *m) {
-    if (m->area->camera->mode != CAMERA_MODE_BEHIND_MARIO) {
-        m->statusForCamera->cameraEvent = CAM_EVENT_SHOT_FROM_CANNON;
+    if (m->actionTimer > 0) {
+	if (m->area->camera->mode != CAMERA_MODE_BEHIND_MARIO) {
+	    set_camera_mode(m->area->camera, CAMERA_MODE_BEHIND_MARIO, 1);
+	}
     }
+    m->actionTimer++;
 
     mario_set_forward_vel(m, m->forwardVel);
 
@@ -1862,6 +1862,7 @@ s32 act_flying(struct MarioState *m) {
 }
 
 s32 act_riding_hoot(struct MarioState *m) {
+    Vec3f objPos;
     if (!(m->input & INPUT_A_DOWN) || (m->marioObj->oInteractStatus & INT_STATUS_MARIO_UNK7)) {
         m->usedObj->oInteractStatus = 0;
         m->usedObj->oHootMarioReleaseTime = gGlobalTimer;
@@ -1873,9 +1874,12 @@ s32 act_riding_hoot(struct MarioState *m) {
         return set_mario_action(m, ACT_FREEFALL, 0);
     }
 
-    m->pos[0] = m->usedObj->oPosX;
-    m->pos[1] = m->usedObj->oPosY - 92.5f;
-    m->pos[2] = m->usedObj->oPosZ;
+    object_pos_to_vec3f(objPos, m->usedObj);
+    mtxf_mul_vec3f(gWorldToLocalGravTransformMtx, objPos);
+
+    m->pos[0] = objPos[0];
+    m->pos[1] = objPos[1] - 92.5f;
+    m->pos[2] = objPos[2];
 
     m->faceAngle[1] = 0x4000 - m->usedObj->oMoveAngleYaw;
 

@@ -36,8 +36,8 @@ void bhv_pushable_loop(void) {
     if (obj_check_if_collided_with_object(o, gMarioObject)
         && (gMarioStates[0].flags & MARIO_UNKNOWN_31)) {
         s16 sp1C = obj_angle_to_object(o, gMarioObject);
-        if (abs_angle_diff(sp1C, gMarioObject->oMoveAngleYaw) > 0x4000) {
-            o->oMoveAngleYaw = (s16)((gMarioObject->oMoveAngleYaw + 0x2000) & 0xC000);
+        if (abs_angle_diff(sp1C, gMarioTrueYaw) > 0x4000) {
+            o->oMoveAngleYaw = (s16)((gMarioTrueYaw + 0x2000) & 0xC000);
             if (check_if_moving_over_floor(8.0f, 150.0f)) {
                 o->oForwardVel = 4.0f;
                 cur_obj_play_sound_1(SOUND_ENV_METAL_BOX_PUSH);

@@ -176,19 +176,20 @@ Gfx *geo_switch_area(s32 callContext, struct GraphNode *node) {
     UNUSED struct Object *sp1C =
         (struct Object *) gCurGraphNodeObject; // TODO: change global type to Object pointer
     struct GraphNodeSwitchCase *switchCase = (struct GraphNodeSwitchCase *) node;
+    struct Object *roomFocusObj = (gCamera->cutscene == CUTSCENE_RED_COIN_STAR_SPAWN) ? gCutsceneFocus : gMarioObject;
 
     if (callContext == GEO_CONTEXT_RENDER) {
-        if (gMarioObject == NULL) {
+	if (roomFocusObj == NULL) {
             switchCase->selectedCase = 0;
         } else {
+            // Find static floors first
             gFindFloorIncludeSurfaceIntangible = TRUE;
-
-            find_floor(gMarioObject->oPosX, gMarioObject->oPosY, gMarioObject->oPosZ, &sp20);
+	    gCurrentObject = NULL;
+            find_floor(roomFocusObj->oPosX + 50*gGravityVector[0], roomFocusObj->oPosY + 50*gGravityVector[1], roomFocusObj->oPosZ + 50*gGravityVector[2], &sp20);
 
             if (sp20) {
                 gMarioCurrentRoom = sp20->room;
                 sp26 = sp20->room - 1;
-                print_debug_top_down_objectinfo("areainfo %d", sp20->room);
 
                 if (sp26 >= 0) {
                     switchCase->selectedCase = sp26;
@@ -2745,11 +2746,7 @@ s32 cur_obj_update_dialog_with_cutscene(s32 actionArg, s32 dialogFlags, s32 cuts
 }
 
 s32 cur_obj_has_model(u16 modelID) {
-    if (o->header.gfx.sharedChild == gLoadedGraphNodes[modelID]) {
-        return TRUE;
-    } else {
-        return FALSE;
-    }
+    return o->header.gfx.sharedChild == gLoadedGraphNodes[modelID];
 }
 
 void cur_obj_align_gfx_with_floor(void) {

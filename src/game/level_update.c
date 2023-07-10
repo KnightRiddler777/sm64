@@ -649,7 +649,6 @@ void initiate_warp(s16 destLevel, s16 destArea, s16 destWarpNode, s32 arg3) {
  */
 struct WarpNode *get_painting_warp_node(void) {
     struct WarpNode *warpNode = NULL;
-    struct Surface *floor;
     f32 floorHeight;
     s32 paintingIndex = marioTrueFloorType - SURFACE_PAINTING_WARP_D3;
 
@@ -701,6 +700,8 @@ void initiate_painting_warp(void) {
         }
     }
 }
+
+extern u32 gMarioDoorWarpArg;
 
 /**
  * If there is not already a delayed warp, schedule one. The source node is
@@ -786,7 +787,7 @@ s16 level_trigger_warp(struct MarioState *m, s32 warpOp) {
 
             case WARP_OP_WARP_DOOR:
                 sDelayedWarpTimer = 20;
-                sDelayedWarpArg = m->actionArg;
+                sDelayedWarpArg = gMarioDoorWarpArg;
                 sSourceWarpNodeId = (m->usedObj->oBehParams & 0x00FF0000) >> 16;
                 val04 = !music_changed_through_warp(sSourceWarpNodeId);
                 play_transition(WARP_TRANSITION_FADE_INTO_CIRCLE, 0x14, 0x00, 0x00, 0x00);
@@ -845,7 +846,7 @@ void initiate_delayed_warp(void) {
         } else {
             switch (sDelayedWarpOp) {
                 case WARP_OP_GAME_OVER:
-                    save_file_reload();
+                    //save_file_reload();
                     warp_special(-3);
                     break;
 

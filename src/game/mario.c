@@ -1344,7 +1344,7 @@ void update_mario_geometry_inputs(struct MarioState *m) {
             || (m->ceil && m->ceil->flags & SURFACE_FLAG_DYNAMIC)) {
             ceilToFloorDist = m->ceilHeight - m->floorHeight;
 
-            if ((0.0f <= ceilToFloorDist) && (ceilToFloorDist <= 150.0f)) {
+            if ((0.0f <= ceilToFloorDist) && (ceilToFloorDist <= 140.0f)) {
                 m->input |= INPUT_SQUISHED;
             }
         }
@@ -1461,12 +1461,17 @@ void update_mario_health(struct MarioState *m) {
                 }
             } else {
                 if ((m->action & ACT_FLAG_SWIMMING) && !(m->action & ACT_FLAG_INTANGIBLE)) {
+		    Vec3f marioHeadPos;
+		    f32 waterLevel;
                     terrainIsSnow = (m->area->terrainType & TERRAIN_MASK) == TERRAIN_SNOW;
 
                     // When Mario is near the water surface, recover health (unless in snow),
                     // when in snow terrains lose 3 health.
                     // If using the debug level select, do not lose any HP to water.
-                    if (!mario_below_water_level(140.f) && !terrainIsSnow) {
+		    vec3f_set(marioHeadPos, 70.f*sins(m->faceAngle[1]), 0.f, 70.f*coss(m->faceAngle[1]));
+		    mtxf_mul_vec3f(gLocalToWorldGravTransformMtx, marioHeadPos);
+		    waterLevel = find_water_level(marioHeadPos[0], marioHeadPos[2]);
+                    if ((!mario_below_water_level(140.f) || (marioHeadPos[1] > waterLevel)) && !terrainIsSnow) {
                         m->health += 0x1A;
                     } else if (!gDebugLevelSelect) {
                         m->health -= (terrainIsSnow ? 3 : 1);
@@ -1649,7 +1654,7 @@ void mario_update_hitbox_and_cap_model(struct MarioState *m) {
     } else {
         m->marioObj->hitboxHeight = 160.0f;
     }
-    m->marioObj->hitboxDownOffset = 160.f * ((1-gGravityVector[1])/2.f);
+    m->marioObj->hitboxDownOffset = m->marioObj->hitboxHeight/2;
 
     if ((m->flags & MARIO_TELEPORTING) && (m->fadeWarpOpacity != 0xFF)) {
         bodyState->modelState &= ~0xFF;
@@ -1822,6 +1827,7 @@ void init_mario(void) {
 
     gMarioState->area = gCurrentArea;
     gMarioState->marioObj = gMarioObject;
+    gMarioState->marioObj->header.gfx.throwMatrix = &gMarioState->marioObj->transform;
     gMarioState->marioObj->header.gfx.animInfo.animID = -1;
     vec3s_copy(gMarioState->faceAngle, gMarioSpawnInfo->startAngle);
     vec3s_set(gMarioState->angleVel, 0, 0, 0);

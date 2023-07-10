@@ -40,7 +40,8 @@ void celeb_star_act_spin_around_mario(void) {
     }
 
     if (o->oTimer < 35) {
-        spawn_object(o, MODEL_SPARKLES, bhvCelebrationStarSparkle);
+        struct Object *sparkle = spawn_object(o, MODEL_SPARKLES, bhvCelebrationStarSparkle);
+	vec3f_copy(&sparkle->oPosX, o->transform[3]);
         o->oCelebStarDiameterOfRotation++;
     } else {
         o->oCelebStarDiameterOfRotation -= 20;
@@ -78,10 +79,16 @@ void bhv_celebration_star_loop(void) {
             celeb_star_act_face_camera();
             break;
     }
+    obj_build_transform_from_pos_and_angle(o, O_POS_INDEX, O_FACE_ANGLE_INDEX);
+    vec3f_sub(o->transform[3], &gMarioObject->oPosX);
+    mtxf_mul(o->transform, o->transform, gLocalToWorldGravTransformMtx);
+    o->header.gfx.throwMatrix = o->transform;
 }
 
 void bhv_celebration_star_sparkle_loop(void) {
-    o->oPosY -= 15.0f;
+    o->oPosX -= 15.f * gGravityVector[0];
+    o->oPosY -= 15.f * gGravityVector[1];
+    o->oPosZ -= 15.f * gGravityVector[2];
 
     if (o->oTimer == 12) {
         o->activeFlags = ACTIVE_FLAG_DEACTIVATED;

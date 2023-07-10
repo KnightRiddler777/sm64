@@ -617,6 +617,10 @@ void create_transformed_surfaces(Vec3f pos) {
             surfaceNode = gDynamicSurfaces.next;
         }
 
+	if (surf->type == SURFACE_INTANGIBLE) {
+	    continue;
+	}
+
         // Transform vertices and normals
         vec3f_copy(n,&surf->normal.x);
         vec3s_copy(v1,surf->vertex1);
@@ -628,9 +632,9 @@ void create_transformed_surfaces(Vec3f pos) {
         mtxf_mul_vec3s(gWorldToLocalGravTransformMtx,v3);
 
         // Find appropiate partition
-        if (n[1] > 0.01) {
+        if (n[1] > 0.01f) {
             listIndex = SPATIAL_PARTITION_FLOORS;
-        } else if (n[1] < -0.01) {
+        } else if (n[1] < -0.01f) {
             listIndex = SPATIAL_PARTITION_CEILS;
         } else {
             listIndex = SPATIAL_PARTITION_WALLS;
@@ -650,6 +654,7 @@ void create_transformed_surfaces(Vec3f pos) {
         newSurf->force = surf->force;
         newSurf->room = surf->room;
         newSurf->object = surf->object;
+	newSurf->flags = surf->flags;
         newSurf->origSurf = surf;
 
         newNode->surface = newSurf;
