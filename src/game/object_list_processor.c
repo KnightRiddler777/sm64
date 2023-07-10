@@ -162,6 +162,10 @@ s16 gNumRoomedObjectsInMarioRoom;
 s16 gNumRoomedObjectsNotInMarioRoom;
 s16 gWDWWaterLevelChanging;
 s16 gMarioOnMerryGoRound;
+// Used for conserving Mario's velocity and yaw through gravity switching.
+Vec3f gMarioVelTransformedVec;
+Vec3f gMarioAngTransformedVec;
+Vec3f gMarioLocalFrameMovement;
 
 /**
  * Nodes used to represent the doubly linked object lists.
@@ -219,32 +223,6 @@ struct ParticleProperties sParticleTypes[] = {
     { 0, 0, MODEL_NONE, NULL },
 };
 
-Vec3f marioShellFrameDisplacement;
-
-void transform_mario_gfx_pos(void) {
-    Mat4 transfMat;
-    Vec3f translVec;
-
-    if (gUseMarioThrowMtx) {
-        mtxf_copy(transfMat, gMarioObject->header.gfx.throwMatrix);
-        gUseMarioThrowMtx = FALSE;
-    } else {
-        vec3f_copy(translVec,marioShellFrameDisplacement);
-
-        // Apply the movement Mario has done in the frame (gMarioStates[i].pos) and rotate him
-        if ((gMarioState->action == ACT_RIDING_SHELL_GROUND) ||
-            (gMarioState->action == ACT_RIDING_SHELL_JUMP) ||
-            (gMarioState->action == ACT_RIDING_SHELL_FALL)) {
-            translVec[1] += 42.f;
-        }
-        translVec[1] -= gMarioState->quicksandDepth;
-        mtxf_rotate_zxy_and_translate(transfMat, translVec, gMarioObject->header.gfx.angle);
-    }
-    // Combine with gravity transform matrix
-    mtxf_mul(gMarioObject->transform, transfMat, gLocalToWorldGravTransformMtx);
-    gMarioObject->header.gfx.throwMatrix = gMarioObject->transform;
-}
-
 /**
  * Copy position, velocity, and angle variables from MarioState to the Mario
  * object.
@@ -269,7 +247,7 @@ void copy_mario_state_to_object(void) {
     vec3f_copy(&gCurrentObject->oPosX, gMarioStates[i].pos);
     mtxf_mul_vec3f(gLocalToWorldGravTransformMtx, &gCurrentObject->oPosX);
 
-    vec3f_copy(marioShellFrameDisplacement, gMarioStates[i].pos);
+    vec3f_copy(gMarioLocalFrameMovement, gMarioStates[i].pos);
     vec3f_copy(gMarioStates[i].pos, &gCurrentObject->oPosX);
 
     // Update Mario's graphical position, only for shadow
@@ -299,11 +277,6 @@ void spawn_particle(u32 activeParticleFlag, s16 model, const BehaviorScript *beh
         obj_copy_pos_and_angle(particle, gCurrentObject);
     }
 }
-
-
-// Used for conserving Mario's velocity and yaw through gravity switching.
-Vec3f marioVelGrav;
-Vec3f marioAngGrav;
 
 // Called here instead of in execute_mario_action
 extern void update_mario_info_for_cam(struct MarioState *);
@@ -369,11 +342,11 @@ void bhv_mario_update(void) {
     create_world_to_local_transform_matrix();
 
     // Rotate the velocity and angle stored last frame back into local coordinates
-    mtxf_mul_vec3f(gWorldToLocalGravRotationMtx, marioVelGrav);
-    mtxf_mul_vec3f(gWorldToLocalGravRotationMtx, marioAngGrav);
+    mtxf_mul_vec3f(gWorldToLocalGravRotationMtx, gMarioVelTransformedVec);
+    mtxf_mul_vec3f(gWorldToLocalGravRotationMtx, gMarioAngTransformedVec);
 
     // Copy velocity
-    vec3f_copy(gMarioState->vel, marioVelGrav);
+    vec3f_copy(gMarioState->vel, gMarioVelTransformedVec);
     gMarioState->slideVelX = gMarioState->vel[0];
     gMarioState->slideVelZ = gMarioState->vel[2];
 
@@ -382,14 +355,13 @@ void bhv_mario_update(void) {
     // Copy forward velocity and yaw
     if (gMarioState->forwardVel != 0.f) {
 	f32 newFVel;
-        gMarioState->faceAngle[1] = atan2s(marioAngGrav[2], marioAngGrav[0]);
+        gMarioState->faceAngle[1] = atan2s(gMarioAngTransformedVec[2], gMarioAngTransformedVec[0]);
 
-        angToFvel = atan2s(marioVelGrav[2], marioVelGrav[0]) - gMarioState->faceAngle[1];
-        marioSpeed = marioVelGrav[0]*marioVelGrav[0] + marioVelGrav[2]*marioVelGrav[2];
+        angToFvel = atan2s(gMarioVelTransformedVec[2], gMarioVelTransformedVec[0]) - gMarioState->faceAngle[1];
+        marioSpeed = gMarioVelTransformedVec[0]*gMarioVelTransformedVec[0] + gMarioVelTransformedVec[2]*gMarioVelTransformedVec[2];
 
-        if ((gMarioState->action == ACT_FLYING) || ((gMarioState->action & ACT_FLAG_SWIMMING) && !(gMarioState->action == ACT_WATER_PLUNGE)))
-        {
-            marioSpeed += marioVelGrav[1]*marioVelGrav[1]; // might need to check swimming too
+        if ((gMarioState->action == ACT_FLYING) || ((gMarioState->action & ACT_FLAG_SWIMMING) && !(gMarioState->action == ACT_WATER_PLUNGE))) {
+            marioSpeed += gMarioVelTransformedVec[1]*gMarioVelTransformedVec[1]; // might need to check swimming too
         }
 
         marioSpeed = sqrtf(marioSpeed);
@@ -438,10 +410,10 @@ void bhv_mario_update(void) {
     }
 
     // Rotate angle and pos into world coordinates for use next frame
-    vec3f_copy(marioVelGrav,gMarioState->vel);
-    vec3f_set(marioAngGrav,sins(gMarioState->faceAngle[1]), 0, coss(gMarioState->faceAngle[1]));
-    mtxf_mul_vec3f(gLocalToWorldGravRotationMtx, marioVelGrav);
-    mtxf_mul_vec3f(gLocalToWorldGravRotationMtx, marioAngGrav);
+    vec3f_copy(gMarioVelTransformedVec,gMarioState->vel);
+    vec3f_set(gMarioAngTransformedVec,sins(gMarioState->faceAngle[1]), 0, coss(gMarioState->faceAngle[1]));
+    mtxf_mul_vec3f(gLocalToWorldGravRotationMtx, gMarioVelTransformedVec);
+    mtxf_mul_vec3f(gLocalToWorldGravRotationMtx, gMarioAngTransformedVec);
 
     i = 0;
     while (sParticleTypes[i].particleFlag != 0) {

@@ -1827,8 +1827,8 @@ void init_mario(void) {
     vec3s_set(gMarioState->angleVel, 0, 0, 0);
     vec3s_to_vec3f(gMarioState->pos, gMarioSpawnInfo->startPos);
     vec3f_set(gMarioState->vel, 0, 0, 0);
-    vec3f_set(marioVelGrav, 0, 0, 0);
-    vec3f_set(marioAngGrav, sins(gMarioSpawnInfo->startAngle[1]), 0, coss(gMarioSpawnInfo->startAngle[1]));
+    vec3f_set(gMarioVelTransformedVec, 0, 0, 0);
+    vec3f_set(gMarioAngTransformedVec, sins(gMarioSpawnInfo->startAngle[1]), 0, coss(gMarioSpawnInfo->startAngle[1]));
     vec3f_set(gGravityVector, 0, 1, 0);
     gMarioState->floorHeight =
         find_floor(gMarioState->pos[0], gMarioState->pos[1], gMarioState->pos[2], &gMarioState->floor);

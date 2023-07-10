@@ -12,6 +12,7 @@
 #include "sm64.h"
 #include "object_list_processor.h"
 #include "behavior_data.h"
+#include "level_update.h"
 
 /**
  * This file contains the code that processes the scene graph for rendering.
@@ -66,6 +67,7 @@ s16 gCurrAnimFrame;
 f32 gCurrAnimTranslationMultiplier;
 u16 *gCurrAnimAttribute;
 s16 *gCurrAnimData;
+u8 gUseMarioThrowMtx = FALSE;
 
 struct AllocOnlyPool *gDisplayListHeap;
 
@@ -820,12 +822,37 @@ static s32 obj_is_in_view(struct GraphNodeObject *node, Mat4 matrix) {
  */
 static void geo_process_object(struct Object *node) {
     Mat4 mtxf;
+    Vec3f translVec;
     s32 hasAnimation = (node->header.gfx.node.flags & GRAPH_RENDER_HAS_ANIMATION) != 0;
 
     if (node->header.gfx.areaIndex == gCurGraphNodeRoot->areaIndex) {
         if (node->behavior == segmented_to_virtual(bhvMario)) {
-            transform_mario_gfx_pos();
+            if (gUseMarioThrowMtx) {
+                    mtxf_copy(mtxf, gMarioObject->header.gfx.throwMatrix);
+                    gUseMarioThrowMtx = FALSE;
+                } else {
+                    vec3f_copy(translVec,gMarioLocalFrameMovement);
+
+                    // Apply the movement Mario has done in the frame (gMarioStates[i].pos) and rotate him
+                    if ((gMarioState->action == ACT_RIDING_SHELL_GROUND) ||
+                        (gMarioState->action == ACT_RIDING_SHELL_JUMP) ||
+                        (gMarioState->action == ACT_RIDING_SHELL_FALL)) {
+                        translVec[1] += 42.f;
+                    }
+                    translVec[1] -= gMarioState->quicksandDepth;
+                    mtxf_rotate_zxy_and_translate(mtxf, translVec, gMarioObject->header.gfx.angle);
+                }
+                // Combine with gravity transform matrix
+                mtxf_mul(gMarioObject->transform, mtxf, gLocalToWorldGravTransformMtx);
+                gMarioObject->header.gfx.throwMatrix = gMarioObject->transform;
+        } else if (node->behavior == segmented_to_virtual(bhvKoopaShell) && (node->oAction == 1)) {
+            vec3f_copy(translVec,gMarioLocalFrameMovement);
+            mtxf_copy(node->transform,gLocalToWorldGravTransformMtx);
+            mtxf_rotate_zxy_and_translate(mtxf, translVec, node->header.gfx.angle);
+            mtxf_mul(node->transform, mtxf, node->transform);
+            node->header.gfx.throwMatrix = node->transform;
         }
+
         if (node->header.gfx.throwMatrix != NULL) {
             mtxf_mul(gMatStack[gMatStackIndex + 1], *node->header.gfx.throwMatrix,
                      gMatStack[gMatStackIndex]);

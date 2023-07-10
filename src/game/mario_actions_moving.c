@@ -13,6 +13,7 @@
 #include "behavior_data.h"
 #include "rumble_init.h"
 #include "object_list_processor.h"
+#include "rendering_graph_node.h"
 
 struct LandingAction {
     s16 numFrames;
@@ -85,8 +86,6 @@ void play_step_sound(struct MarioState *m, s16 frame1, s16 frame2) {
         }
     }
 }
-
-u8 gUseMarioThrowMtx = FALSE;
 
 void align_with_floor(struct MarioState *m) {
     m->pos[1] = m->floorHeight;
